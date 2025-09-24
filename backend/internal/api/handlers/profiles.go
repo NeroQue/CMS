@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -120,10 +119,10 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	// expect current name and new name in request
+	// expect user ID and new name in request
 	type updateRequest struct {
-		CurrentName string `json:"current_name"`
-		NewName     string `json:"new_name"`
+		UserID  uuid.UUID `json:"user_id"`
+		NewName string    `json:"new_name"`
 	}
 
 	var req updateRequest
@@ -134,8 +133,19 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	// validate required fields
+	if req.UserID == uuid.Nil {
+		http.Error(w, "User ID is required", http.StatusBadRequest)
+		return
+	}
+
+	if req.NewName == "" {
+		http.Error(w, "New name is required", http.StatusBadRequest)
+		return
+	}
+
 	// let service handle the update logic
-	updatedProfile, err := h.Service.UpdateProfileName(r.Context(), req.CurrentName, req.NewName)
+	updatedProfile, err := h.Service.UpdateProfileName(r.Context(), req.UserID, req.NewName)
 	if err != nil {
 		log.Printf("Error updating profile: %v", err)
 		http.Error(w, "Failed to update profile", http.StatusInternalServerError)
@@ -165,7 +175,7 @@ func (h *ProfileHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	type deleteRequest struct {
-		Name string `json:"name"`
+		UserID uuid.UUID `json:"user_id"`
 	}
 
 	var req deleteRequest
@@ -176,15 +186,21 @@ func (h *ProfileHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	// validate required fields
+	if req.UserID == uuid.Nil {
+		http.Error(w, "User ID is required", http.StatusBadRequest)
+		return
+	}
+
 	// service handles the actual deletion
-	if err := h.Service.DeleteProfileByName(r.Context(), req.Name); err != nil {
+	if err := h.Service.DeleteProfileByID(r.Context(), req.UserID); err != nil {
 		log.Printf("Error deleting profile: %v", err)
 		http.Error(w, "Failed to delete profile", http.StatusInternalServerError)
 		return
 	}
 
 	response := ProfileDeleteResponse{
-		Message: fmt.Sprintf("Profile %s deleted successfully", req.Name),
+		Message: "Profile deleted successfully",
 	}
 
 	w.WriteHeader(http.StatusOK)

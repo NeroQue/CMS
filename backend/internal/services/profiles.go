@@ -77,20 +77,24 @@ func (s *ProfileService) CreateProfile(ctx context.Context, profile models.Profi
 	}, nil
 }
 
-// UpdateProfileName updates profile name by current name
-func (s *ProfileService) UpdateProfileName(ctx context.Context, currentName, newName string) (models.Profile, error) {
+// UpdateProfileName updates profile name by user ID (changed from name-based to ID-based for safety)
+func (s *ProfileService) UpdateProfileName(ctx context.Context, userID uuid.UUID, newName string) (models.Profile, error) {
 	// validate inputs
-	if strings.TrimSpace(currentName) == "" || strings.TrimSpace(newName) == "" {
-		return models.Profile{}, errors.New("both current name and new name are required")
+	if userID == uuid.Nil {
+		return models.Profile{}, errors.New("user ID cannot be empty")
+	}
+
+	if strings.TrimSpace(newName) == "" {
+		return models.Profile{}, errors.New("new name cannot be empty")
 	}
 
 	// let database handle the update
-	updatedProfile, err := s.DB.UpdateProfileName(ctx, database.UpdateProfileNameParams{
-		Name:   currentName,
-		Name_2: newName,
+	updatedProfile, err := s.DB.UpdateProfileByID(ctx, database.UpdateProfileByIDParams{
+		ID:   userID,
+		Name: newName,
 	})
 	if err != nil {
-		log.Printf("Error updating profile: %v", err)
+		log.Printf("Error updating profile by ID: %v", err)
 		return models.Profile{}, fmt.Errorf("failed to update profile: %w", err)
 	}
 
@@ -101,22 +105,6 @@ func (s *ProfileService) UpdateProfileName(ctx context.Context, currentName, new
 		CreatedAt: updatedProfile.CreatedAt,
 		UpdatedAt: updatedProfile.UpdatedAt,
 	}, nil
-}
-
-// DeleteProfileByName deletes a profile by name
-func (s *ProfileService) DeleteProfileByName(ctx context.Context, name string) error {
-	// validate input
-	if strings.TrimSpace(name) == "" {
-		return errors.New("profile name cannot be empty")
-	}
-
-	// let database handle the deletion
-	if err := s.DB.DeleteProfileByName(ctx, name); err != nil {
-		log.Printf("Error deleting profile: %v", err)
-		return fmt.Errorf("failed to delete profile: %w", err)
-	}
-
-	return nil
 }
 
 // GetProfileByID retrieves a profile by its ID
@@ -135,4 +123,20 @@ func (s *ProfileService) GetProfileByID(ctx context.Context, id uuid.UUID) (mode
 		CreatedAt: dbProfile.CreatedAt,
 		UpdatedAt: dbProfile.UpdatedAt,
 	}, nil
+}
+
+// DeleteProfileByID deletes a profile by user ID (safer than name-based deletion)
+func (s *ProfileService) DeleteProfileByID(ctx context.Context, userID uuid.UUID) error {
+	// validate input
+	if userID == uuid.Nil {
+		return errors.New("user ID cannot be empty")
+	}
+
+	// let database handle the deletion
+	if err := s.DB.DeleteProfile(ctx, userID); err != nil {
+		log.Printf("Error deleting profile by ID: %v", err)
+		return fmt.Errorf("failed to delete profile: %w", err)
+	}
+
+	return nil
 }

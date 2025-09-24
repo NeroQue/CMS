@@ -50,17 +50,6 @@ func (q *Queries) DeleteProfile(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-const deleteProfileByName = `-- name: DeleteProfileByName :exec
-DELETE
-FROM profiles
-WHERE name = $1
-`
-
-func (q *Queries) DeleteProfileByName(ctx context.Context, name string) error {
-	_, err := q.db.ExecContext(ctx, deleteProfileByName, name)
-	return err
-}
-
 const getAllProfiles = `-- name: GetAllProfiles :many
 SELECT id, name, created_at, updated_at FROM profiles
 `
@@ -175,21 +164,21 @@ func (q *Queries) GetProfilesCount(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-const updateProfileName = `-- name: UpdateProfileName :one
+const updateProfileByID = `-- name: UpdateProfileByID :one
 UPDATE profiles
 SET name       = $2,
     updated_at = now()
-WHERE name = $1
+WHERE id = $1
 RETURNING id, name, created_at, updated_at
 `
 
-type UpdateProfileNameParams struct {
-	Name   string
-	Name_2 string
+type UpdateProfileByIDParams struct {
+	ID   uuid.UUID
+	Name string
 }
 
-func (q *Queries) UpdateProfileName(ctx context.Context, arg UpdateProfileNameParams) (Profile, error) {
-	row := q.db.QueryRowContext(ctx, updateProfileName, arg.Name, arg.Name_2)
+func (q *Queries) UpdateProfileByID(ctx context.Context, arg UpdateProfileByIDParams) (Profile, error) {
+	row := q.db.QueryRowContext(ctx, updateProfileByID, arg.ID, arg.Name)
 	var i Profile
 	err := row.Scan(
 		&i.ID,

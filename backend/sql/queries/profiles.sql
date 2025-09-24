@@ -21,22 +21,17 @@ SELECT *
 FROM profiles
 WHERE name = $1;
 
--- name: UpdateProfileName :one
+-- name: UpdateProfileByID :one
 UPDATE profiles
 SET name       = $2,
     updated_at = now()
-WHERE name = $1
+WHERE id = $1
 RETURNING *;
 
 -- name: DeleteProfile :exec
 DELETE
 FROM profiles
 WHERE id = $1;
-
--- name: DeleteProfileByName :exec
-DELETE
-FROM profiles
-WHERE name = $1;
 
 -- name: GetProfilesByNamePattern :many
 SELECT *

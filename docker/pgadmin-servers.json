@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "CMS Database",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "devdb",
+      "Username": "devuser",
+      "SSLMode": "prefer",
+      "PassFile": "/tmp/pgpassfile"
+    }
+  }
+}

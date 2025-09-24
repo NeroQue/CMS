@@ -1,0 +1,10 @@
+backend/.idea/
+.idea
+.env
+
+# scripts to migrate db faster using Goose
+migrate_down.sh
+migrate_up.sh
+
+# temp
+TMP

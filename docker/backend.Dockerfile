@@ -11,8 +11,6 @@ COPY backend/ .
 
 # .env file
 COPY .env .
-# Debug: Show .env content during build
-RUN echo "===== .env file content during build =====" && cat .env && echo "===== end of .env file ====="
 
 # Build the application
 RUN go build -o server ./cmd/...

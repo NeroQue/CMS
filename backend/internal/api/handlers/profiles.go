@@ -67,7 +67,7 @@ func (h *ProfileHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	SendCreatedResponse(w, "Profile created successfully", createdProfile,
-		"Profile created successfully with ID: "+createdProfile.UserID.String())
+		"Profile created successfully with ID: "+createdProfile.ID.String())
 }
 
 // Update handles PUT /api/profiles - updates existing profile

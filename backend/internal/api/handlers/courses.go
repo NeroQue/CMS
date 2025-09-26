@@ -10,7 +10,6 @@ import (
 
 	"github.com/NeroQue/course-management-backend/internal/models"
 	"github.com/NeroQue/course-management-backend/internal/services"
-	"github.com/NeroQue/course-management-backend/pkg/parser"
 	"github.com/NeroQue/course-management-backend/pkg/session"
 	"github.com/NeroQue/course-management-backend/pkg/task"
 	"github.com/NeroQue/course-management-backend/pkg/util"

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
@@ -11,25 +10,6 @@ import (
 	"github.com/NeroQue/course-management-backend/pkg/session"
 	"github.com/google/uuid"
 )
-
-// Response structs for profile endpoints
-type ProfileListResponse struct {
-	Message string           `json:"message"`
-	Data    []models.Profile `json:"data"`
-}
-
-type ProfileResponse struct {
-	Message string         `json:"message"`
-	Data    models.Profile `json:"data"`
-}
-
-type ProfileDeleteResponse struct {
-	Message string `json:"message"`
-}
-
-type ProfileSelectResponse struct {
-	Message string `json:"message"`
-}
 
 // ProfileHandler processes profile-related HTTP requests
 type ProfileHandler struct {
@@ -43,81 +23,56 @@ func NewProfileHandler(service *services.ProfileService) *ProfileHandler {
 
 // List handles GET /api/profiles - returns all user profiles
 func (h *ProfileHandler) List(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
+	log.Printf("Profile list requested from IP: %s", r.RemoteAddr)
 
 	// get profiles from service layer
 	profiles, err := h.Service.GetAllProfiles(r.Context())
 	if err != nil {
-		log.Printf("Error retrieving profiles: %v", err)
-		http.Error(w, "Failed to retrieve profiles", http.StatusInternalServerError)
+		SendErrorResponse(w, "Failed to retrieve profiles", http.StatusInternalServerError,
+			"Error retrieving profiles from database", err)
 		return
 	}
 
-	response := ProfileListResponse{
-		Message: "Profiles retrieved successfully",
-		Data:    profiles,
-	}
-
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding JSON response: %v", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
-	}
+	SendSuccessResponse(w, "Profiles retrieved successfully", profiles,
+		"Successfully retrieved and returned profile list")
 }
 
 // Create handles POST /api/profiles - makes new profile
 func (h *ProfileHandler) Create(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+	log.Printf("Profile creation requested from IP: %s", r.RemoteAddr)
 
-	w.Header().Set("Content-Type", "application/json")
-
-	// parse the request body
+	// parse and validate the request body
 	var profile models.Profile
-	if err := json.NewDecoder(r.Body).Decode(&profile); err != nil {
-		log.Printf("Error decoding request body: %v", err)
-		http.Error(w, "Invalid request format", http.StatusBadRequest)
+	if err := ValidateJSONBody(r, &profile); err != nil {
+		SendErrorResponse(w, "Invalid request format: "+err.Error(), http.StatusBadRequest,
+			"Invalid JSON in profile creation request", err)
 		return
 	}
-	defer r.Body.Close()
+
+	// basic validation for required fields
+	if strings.TrimSpace(profile.Name) == "" {
+		SendErrorResponse(w, "Profile name is required", http.StatusBadRequest,
+			"Profile creation attempted with empty name", nil)
+		return
+	}
+
+	log.Printf("Creating new profile with name: %s", profile.Name)
 
 	// use service to create profile
 	createdProfile, err := h.Service.CreateProfile(r.Context(), profile)
 	if err != nil {
-		log.Printf("Error creating profile: %v", err)
-		http.Error(w, "Failed to create profile", http.StatusInternalServerError)
+		SendErrorResponse(w, "Failed to create profile", http.StatusInternalServerError,
+			"Error creating profile in database", err)
 		return
 	}
 
-	response := ProfileResponse{
-		Message: "Profile created successfully",
-		Data:    createdProfile,
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding response: %v", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
-	}
+	SendCreatedResponse(w, "Profile created successfully", createdProfile,
+		"Profile created successfully with ID: "+createdProfile.UserID.String())
 }
 
 // Update handles PUT /api/profiles - updates existing profile
 func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
+	log.Printf("Profile update requested from IP: %s", r.RemoteAddr)
 
 	// expect user ID and new name in request
 	type updateRequest struct {
@@ -126,122 +81,107 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req updateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Error decoding request body: %v", err)
-		http.Error(w, "Invalid request format", http.StatusBadRequest)
+	if err := ValidateJSONBody(r, &req); err != nil {
+		SendErrorResponse(w, "Invalid request format: "+err.Error(), http.StatusBadRequest,
+			"Invalid JSON in profile update request", err)
 		return
 	}
-	defer r.Body.Close()
 
 	// validate required fields
 	if req.UserID == uuid.Nil {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		SendErrorResponse(w, "User ID is required", http.StatusBadRequest,
+			"Profile update attempted with missing user ID", nil)
 		return
 	}
 
-	if req.NewName == "" {
-		http.Error(w, "New name is required", http.StatusBadRequest)
+	if strings.TrimSpace(req.NewName) == "" {
+		SendErrorResponse(w, "New name is required and cannot be empty", http.StatusBadRequest,
+			"Profile update attempted with empty name", nil)
 		return
 	}
+
+	log.Printf("Updating profile %s with new name: %s", req.UserID.String(), req.NewName)
 
 	// let service handle the update logic
 	updatedProfile, err := h.Service.UpdateProfileName(r.Context(), req.UserID, req.NewName)
 	if err != nil {
-		log.Printf("Error updating profile: %v", err)
-		http.Error(w, "Failed to update profile", http.StatusInternalServerError)
+		SendErrorResponse(w, "Failed to update profile", http.StatusInternalServerError,
+			"Error updating profile in database", err)
 		return
 	}
 
-	response := ProfileResponse{
-		Message: "Profile updated successfully",
-		Data:    updatedProfile,
-	}
-
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding response: %v", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
-	}
+	SendSuccessResponse(w, "Profile updated successfully", updatedProfile,
+		"Profile "+req.UserID.String()+" updated successfully")
 }
 
 // Delete handles DELETE /api/profiles - removes a profile
 func (h *ProfileHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
+	log.Printf("Profile deletion requested from IP: %s", r.RemoteAddr)
 
 	type deleteRequest struct {
 		UserID uuid.UUID `json:"user_id"`
 	}
 
 	var req deleteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Error decoding request body: %v", err)
-		http.Error(w, "Invalid request format", http.StatusBadRequest)
+	if err := ValidateJSONBody(r, &req); err != nil {
+		SendErrorResponse(w, "Invalid request format: "+err.Error(), http.StatusBadRequest,
+			"Invalid JSON in profile deletion request", err)
 		return
 	}
-	defer r.Body.Close()
 
 	// validate required fields
 	if req.UserID == uuid.Nil {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		SendErrorResponse(w, "User ID is required", http.StatusBadRequest,
+			"Profile deletion attempted with missing user ID", nil)
 		return
 	}
+
+	log.Printf("Deleting profile: %s", req.UserID.String())
 
 	// service handles the actual deletion
 	if err := h.Service.DeleteProfileByID(r.Context(), req.UserID); err != nil {
-		log.Printf("Error deleting profile: %v", err)
-		http.Error(w, "Failed to delete profile", http.StatusInternalServerError)
+		SendErrorResponse(w, "Failed to delete profile", http.StatusInternalServerError,
+			"Error deleting profile from database", err)
 		return
 	}
 
-	response := ProfileDeleteResponse{
-		Message: "Profile deleted successfully",
-	}
-
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding response: %v", err)
-		return
-	}
+	SendSuccessResponse(w, "Profile deleted successfully", nil,
+		"Profile "+req.UserID.String()+" deleted successfully")
 }
 
 // SelectProfile handles POST /api/profiles/{id}/select - sets active profile
 func (h *ProfileHandler) SelectProfile(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Profile selection requested from IP: %s", r.RemoteAddr)
+
 	// extract profile ID from URL path like /api/profiles/{id}/select
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) < 4 {
-		http.Error(w, "Invalid URL path", http.StatusBadRequest)
+		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
+			"Invalid URL path in profile selection", nil)
 		return
 	}
 
 	profileIDStr := pathParts[3]
 	profileID, err := uuid.Parse(profileIDStr)
 	if err != nil {
-		http.Error(w, "Invalid profile ID format", http.StatusBadRequest)
+		SendErrorResponse(w, "Invalid profile ID format", http.StatusBadRequest,
+			"Invalid UUID format in profile selection", err)
 		return
 	}
+
+	log.Printf("Selecting profile: %s", profileID.String())
 
 	// make sure profile actually exists
 	_, err = h.Service.GetProfileByID(r.Context(), profileID)
 	if err != nil {
-		log.Printf("Error retrieving profile: %v", err)
-		http.Error(w, "Profile not found", http.StatusNotFound)
+		SendErrorResponse(w, "Profile not found", http.StatusNotFound,
+			"Attempted to select non-existent profile", err)
 		return
 	}
 
 	// set as current user in session
 	session.SetCurrentUser(profileID)
 
-	response := ProfileSelectResponse{
-		Message: "Profile selected successfully",
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	SendSuccessResponse(w, "Profile selected successfully", nil,
+		"Profile "+profileID.String()+" selected as active")
 }

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -17,56 +16,6 @@ import (
 	"github.com/NeroQue/course-management-backend/pkg/util"
 	"github.com/google/uuid"
 )
-
-// Response structs for course endpoints
-type CourseListResponse struct {
-	Message string           `json:"message"`
-	Data    []*models.Course `json:"data"`
-}
-
-type CourseResponse struct {
-	Message string         `json:"message"`
-	Data    *models.Course `json:"data"`
-}
-
-type DirectoriesResponse struct {
-	Message string            `json:"message"`
-	Data    []parser.FileInfo `json:"data"`
-}
-
-type ScanCoursesResponse struct {
-	Message string            `json:"message"`
-	Count   int               `json:"count"`
-	Data    []parser.FileInfo `json:"data"`
-}
-
-type BatchImportStartResponse struct {
-	Message string `json:"message"`
-	TaskID  string `json:"task_id"`
-}
-
-type CourseProgressResponse struct {
-	Message string                 `json:"message"`
-	Data    *models.CourseProgress `json:"data"`
-}
-
-type ModuleProgressResponse struct {
-	Message string                 `json:"message"`
-	Data    *models.ModuleProgress `json:"data"`
-}
-
-type ProgressUpdateResponse struct {
-	Message string `json:"message"`
-}
-
-type ContentCompleteResponse struct {
-	Message string `json:"message"`
-}
-
-type UserProgressSummaryResponse struct {
-	Message string                  `json:"message"`
-	Data    *models.ProgressSummary `json:"data"`
-}
 
 // request/response structs for batch import
 type BatchImportRequest struct {
@@ -92,52 +41,49 @@ func NewCourseHandler(service *services.CourseService) *CourseHandler {
 
 // List handles GET /api/courses - returns all courses
 func (h *CourseHandler) List(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	log.Printf("Course list requested from IP: %s", r.RemoteAddr)
 
 	// get courses from service layer
 	courses, err := h.Service.ListCourses(r.Context())
 	if err != nil {
-		log.Printf("Error retrieving courses: %v", err)
-		http.Error(w, "Failed to retrieve courses", http.StatusInternalServerError)
+		SendErrorResponse(w, "Failed to retrieve courses", http.StatusInternalServerError,
+			"Error retrieving courses from database", err)
 		return
 	}
 
-	response := CourseListResponse{
-		Message: "Courses retrieved successfully",
-		Data:    courses,
-	}
-
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding JSON response: %v", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
-	}
+	SendSuccessResponse(w, "Courses retrieved successfully", courses,
+		"Successfully retrieved and returned course list")
 }
 
 // Create handles POST /api/courses - makes new course from directory
 func (h *CourseHandler) Create(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Course creation requested from IP: %s", r.RemoteAddr)
+
 	var input models.CreateCourseInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := ValidateJSONBody(r, &input); err != nil {
+		SendErrorResponse(w, "Invalid request format: "+err.Error(), http.StatusBadRequest,
+			"Invalid JSON in course creation request", err)
 		return
 	}
 
 	// basic validation
-	if input.Title == "" {
-		http.Error(w, "Course title is required", http.StatusBadRequest)
+	if strings.TrimSpace(input.Title) == "" {
+		SendErrorResponse(w, "Course title is required", http.StatusBadRequest,
+			"Course creation attempted with empty title", nil)
 		return
 	}
 
-	if input.RelativePath == "" {
-		http.Error(w, "Relative path is required", http.StatusBadRequest)
+	if strings.TrimSpace(input.RelativePath) == "" {
+		SendErrorResponse(w, "Relative path is required", http.StatusBadRequest,
+			"Course creation attempted with empty relative path", nil)
 		return
 	}
 
 	// need user logged in to create courses
 	userID := session.GetCurrentUser()
 	if userID == uuid.Nil {
-		http.Error(w, "You must be logged in to create courses", http.StatusUnauthorized)
+		SendErrorResponse(w, "You must be logged in to create courses", http.StatusUnauthorized,
+			"Unauthorized course creation attempt", nil)
 		return
 	}
 
@@ -146,96 +92,84 @@ func (h *CourseHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	directoryPath := filepath.Join(input.BasePath, input.RelativePath)
-	ctx := r.Context()
+	log.Printf("Creating course from directory: %s for user: %s", directoryPath, userID.String())
 
 	// let service handle the actual import
-	course, err := h.Service.ImportCourse(ctx, directoryPath, userID)
+	course, err := h.Service.ImportCourse(r.Context(), directoryPath, userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		SendErrorResponse(w, "Failed to create course: "+err.Error(), http.StatusBadRequest,
+			"Error importing course from directory", err)
 		return
 	}
 
-	response := CourseResponse{
-		Message: "Course created successfully",
-		Data:    course,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+	SendCreatedResponse(w, "Course created successfully", course,
+		"Course created successfully with ID: "+course.ID.String())
 }
 
 // ListDirectories handles GET /api/courses/directories - shows available dirs
 func (h *CourseHandler) ListDirectories(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	log.Printf("Course directories list requested from IP: %s", r.RemoteAddr)
 
 	directories, err := h.Service.Parser.ListCourseDirectories()
 	if err != nil {
-		log.Printf("Error listing directories: %v", err)
-		http.Error(w, "Failed to list directories", http.StatusInternalServerError)
+		SendErrorResponse(w, "Failed to list directories", http.StatusInternalServerError,
+			"Error listing course directories", err)
 		return
 	}
 
-	response := DirectoriesResponse{
-		Message: "Directories retrieved successfully",
-		Data:    directories,
-	}
-
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding JSON response: %v", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
-	}
+	SendSuccessResponse(w, "Directories retrieved successfully", directories,
+		"Successfully retrieved course directories list")
 }
 
 // ScanNewCourses handles GET /api/courses/scan - finds dirs not imported yet
 func (h *CourseHandler) ScanNewCourses(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	log.Printf("New courses scan requested from IP: %s", r.RemoteAddr)
 
 	// compare filesystem with database to find new ones
 	newDirectories, err := h.Service.ScanNewCourses(r.Context())
 	if err != nil {
-		log.Printf("Error scanning for new courses: %v", err)
-		http.Error(w, "Failed to scan for new courses", http.StatusInternalServerError)
+		SendErrorResponse(w, "Failed to scan for new courses", http.StatusInternalServerError,
+			"Error scanning for new courses", err)
 		return
 	}
 
-	response := ScanCoursesResponse{
-		Message: "New course directories found",
-		Count:   len(newDirectories),
-		Data:    newDirectories,
+	// Create custom response with count
+	responseData := map[string]interface{}{
+		"count":       len(newDirectories),
+		"directories": newDirectories,
 	}
 
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding JSON response: %v", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
-	}
+	SendSuccessResponse(w, "New course directories found", responseData,
+		"Found "+strconv.Itoa(len(newDirectories))+" new course directories")
 }
 
 // BatchImport handles POST /api/courses/batch - imports multiple courses at once
 func (h *CourseHandler) BatchImport(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Batch course import requested from IP: %s", r.RemoteAddr)
+
 	var request BatchImportRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := ValidateJSONBody(r, &request); err != nil {
+		SendErrorResponse(w, "Invalid request format: "+err.Error(), http.StatusBadRequest,
+			"Invalid JSON in batch import request", err)
 		return
 	}
 
 	if len(request.Courses) == 0 {
-		http.Error(w, "No courses provided for import", http.StatusBadRequest)
+		SendErrorResponse(w, "No courses provided for import", http.StatusBadRequest,
+			"Batch import attempted with empty course list", nil)
 		return
 	}
 
 	userID := session.GetCurrentUser()
 	if userID == uuid.Nil {
-		http.Error(w, "You must be logged in to import courses", http.StatusUnauthorized)
+		SendErrorResponse(w, "You must be logged in to import courses", http.StatusUnauthorized,
+			"Unauthorized batch import attempt", nil)
 		return
 	}
 
 	// create background task since this might take a while
 	taskID := task.CreateTask("batch_import")
+	log.Printf("Starting batch import task %s for %d courses", taskID, len(request.Courses))
 
 	// do the actual work in background
 	go func() {
@@ -261,130 +195,139 @@ func (h *CourseHandler) BatchImport(w http.ResponseWriter, r *http.Request) {
 		if len(errs) > 0 && len(importedCourses) == 0 {
 			task.SetTaskError(taskID, "Failed to import any courses")
 			task.CompleteTask(taskID, response)
+			log.Printf("Batch import %s failed completely", taskID)
 		} else if len(errs) > 0 {
 			task.SetTaskMessage(taskID, "Imported "+strconv.Itoa(len(importedCourses))+" courses with "+strconv.Itoa(len(errs))+" errors")
 			task.CompleteTask(taskID, response)
+			log.Printf("Batch import %s completed with partial success", taskID)
 		} else {
 			task.SetTaskMessage(taskID, "Successfully imported "+strconv.Itoa(len(importedCourses))+" courses")
 			task.CompleteTask(taskID, response)
+			log.Printf("Batch import %s completed successfully", taskID)
 		}
 	}()
 
 	// return task ID so client can check progress
-	response := BatchImportStartResponse{
-		Message: "Import started",
-		TaskID:  taskID,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	responseData := map[string]string{"task_id": taskID}
+	SendSuccessResponse(w, "Import started", responseData,
+		"Batch import task created with ID: "+taskID)
 }
 
 // GetCourseProgress handles GET /api/courses/{id}/progress?user_id={uuid} - shows course progress for user
 func (h *CourseHandler) GetCourseProgress(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Course progress requested from IP: %s", r.RemoteAddr)
+
 	// extract course ID from URL path
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) < 4 {
-		http.Error(w, "Invalid URL path", http.StatusBadRequest)
+		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
+			"Invalid URL path in course progress request", nil)
 		return
 	}
 
 	courseIDStr := pathParts[3]
 	courseID, err := uuid.Parse(courseIDStr)
 	if err != nil {
-		http.Error(w, "Invalid course ID format", http.StatusBadRequest)
+		SendErrorResponse(w, "Invalid course ID format", http.StatusBadRequest,
+			"Invalid course UUID in progress request", err)
 		return
 	}
 
 	// get user ID from query params
 	userIDStr := r.URL.Query().Get("user_id")
 	if userIDStr == "" {
-		http.Error(w, "user_id query parameter is required", http.StatusBadRequest)
+		SendErrorResponse(w, "user_id query parameter is required", http.StatusBadRequest,
+			"Missing user_id parameter in progress request", nil)
 		return
 	}
 
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+		SendErrorResponse(w, "Invalid user ID format", http.StatusBadRequest,
+			"Invalid user UUID in progress request", err)
 		return
 	}
+
+	log.Printf("Calculating course progress for course %s and user %s", courseID.String(), userID.String())
 
 	// calculate course progress
 	progress, err := h.Service.CalculateCourseProgress(r.Context(), userID, courseID)
 	if err != nil {
-		log.Printf("Error calculating course progress: %v", err)
-		http.Error(w, "Failed to calculate progress", http.StatusInternalServerError)
+		SendErrorResponse(w, "Failed to calculate progress", http.StatusInternalServerError,
+			"Error calculating course progress", err)
 		return
 	}
 
-	response := CourseProgressResponse{
-		Message: "Course progress calculated",
-		Data:    progress,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendSuccessResponse(w, "Course progress calculated", progress,
+		"Course progress calculated and returned")
 }
 
 // GetModuleProgress handles GET /api/modules/{id}/progress?user_id={uuid} - shows module progress for user
 func (h *CourseHandler) GetModuleProgress(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Module progress requested from IP: %s", r.RemoteAddr)
+
 	// extract module ID from URL path
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) < 4 {
-		http.Error(w, "Invalid URL path", http.StatusBadRequest)
+		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
+			"Invalid URL path in module progress request", nil)
 		return
 	}
 
 	moduleIDStr := pathParts[3]
 	moduleID, err := uuid.Parse(moduleIDStr)
 	if err != nil {
-		http.Error(w, "Invalid module ID format", http.StatusBadRequest)
+		SendErrorResponse(w, "Invalid module ID format", http.StatusBadRequest,
+			"Invalid module UUID in progress request", err)
 		return
 	}
 
 	// get user ID from query params
 	userIDStr := r.URL.Query().Get("user_id")
 	if userIDStr == "" {
-		http.Error(w, "user_id query parameter is required", http.StatusBadRequest)
+		SendErrorResponse(w, "user_id query parameter is required", http.StatusBadRequest,
+			"Missing user_id parameter in progress request", nil)
 		return
 	}
 
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+		SendErrorResponse(w, "Invalid user ID format", http.StatusBadRequest,
+			"Invalid user UUID in progress request", err)
 		return
 	}
+
+	log.Printf("Calculating module progress for module %s and user %s", moduleID.String(), userID.String())
 
 	// calculate module progress
 	progress, err := h.Service.CalculateModuleProgress(r.Context(), userID, moduleID)
 	if err != nil {
-		log.Printf("Error calculating module progress: %v", err)
-		http.Error(w, "Failed to calculate progress", http.StatusInternalServerError)
+		SendErrorResponse(w, "Failed to calculate progress", http.StatusInternalServerError,
+			"Error calculating module progress", err)
 		return
 	}
 
-	response := ModuleProgressResponse{
-		Message: "Module progress calculated",
-		Data:    progress,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendSuccessResponse(w, "Module progress calculated", progress,
+		"Module progress calculated and returned")
 }
 
 // UpdateContentProgress handles POST /api/content/{id}/progress - updates progress for content item
 func (h *CourseHandler) UpdateContentProgress(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Content progress update requested from IP: %s", r.RemoteAddr)
+
 	// extract content item ID from URL path
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) < 4 {
-		http.Error(w, "Invalid URL path", http.StatusBadRequest)
+		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
+			"Invalid URL path in content progress update", nil)
 		return
 	}
 
 	contentIDStr := pathParts[3]
 	contentID, err := uuid.Parse(contentIDStr)
 	if err != nil {
-		http.Error(w, "Invalid content ID format", http.StatusBadRequest)
+		SendErrorResponse(w, "Invalid content ID format", http.StatusBadRequest,
+			"Invalid content UUID in progress update", err)
 		return
 	}
 
@@ -397,40 +340,51 @@ func (h *CourseHandler) UpdateContentProgress(w http.ResponseWriter, r *http.Req
 	}
 
 	var update progressUpdate
-	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := ValidateJSONBody(r, &update); err != nil {
+		SendErrorResponse(w, "Invalid request format: "+err.Error(), http.StatusBadRequest,
+			"Invalid JSON in progress update request", err)
 		return
 	}
+
+	// validate required fields
+	if update.UserID == uuid.Nil {
+		SendErrorResponse(w, "User ID is required", http.StatusBadRequest,
+			"Progress update attempted with missing user ID", nil)
+		return
+	}
+
+	log.Printf("Updating content progress for content %s, user %s, progress %.1f%%",
+		contentID.String(), update.UserID.String(), update.ProgressPct)
 
 	// update progress
 	err = h.Service.UpdateContentItemProgress(r.Context(), update.UserID, contentID, update.ProgressPct, update.LastPosition)
 	if err != nil {
-		log.Printf("Error updating content progress: %v", err)
-		http.Error(w, "Failed to update progress", http.StatusInternalServerError)
+		SendErrorResponse(w, "Failed to update progress", http.StatusInternalServerError,
+			"Error updating content progress", err)
 		return
 	}
 
-	response := ProgressUpdateResponse{
-		Message: "Progress updated successfully",
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendSuccessResponse(w, "Progress updated successfully", nil,
+		"Content progress updated successfully")
 }
 
 // MarkContentCompleted handles POST /api/content/{id}/complete - marks content as completed
 func (h *CourseHandler) MarkContentCompleted(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Content completion requested from IP: %s", r.RemoteAddr)
+
 	// extract content item ID from URL path
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) < 4 {
-		http.Error(w, "Invalid URL path", http.StatusBadRequest)
+		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
+			"Invalid URL path in content completion", nil)
 		return
 	}
 
 	contentIDStr := pathParts[3]
 	contentID, err := uuid.Parse(contentIDStr)
 	if err != nil {
-		http.Error(w, "Invalid content ID format", http.StatusBadRequest)
+		SendErrorResponse(w, "Invalid content ID format", http.StatusBadRequest,
+			"Invalid content UUID in completion request", err)
 		return
 	}
 
@@ -440,58 +394,63 @@ func (h *CourseHandler) MarkContentCompleted(w http.ResponseWriter, r *http.Requ
 	}
 
 	var req completeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := ValidateJSONBody(r, &req); err != nil {
+		SendErrorResponse(w, "Invalid request format: "+err.Error(), http.StatusBadRequest,
+			"Invalid JSON in completion request", err)
 		return
 	}
+
+	// validate required fields
+	if req.UserID == uuid.Nil {
+		SendErrorResponse(w, "User ID is required", http.StatusBadRequest,
+			"Content completion attempted with missing user ID", nil)
+		return
+	}
+
+	log.Printf("Marking content %s as completed for user %s", contentID.String(), req.UserID.String())
 
 	// mark as completed
 	err = h.Service.MarkContentItemCompleted(r.Context(), req.UserID, contentID)
 	if err != nil {
-		log.Printf("Error marking content completed: %v", err)
-		http.Error(w, "Failed to mark as completed", http.StatusInternalServerError)
+		SendErrorResponse(w, "Failed to mark as completed", http.StatusInternalServerError,
+			"Error marking content as completed", err)
 		return
 	}
 
-	response := ContentCompleteResponse{
-		Message: "Content marked as completed",
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendSuccessResponse(w, "Content marked as completed", nil,
+		"Content successfully marked as completed")
 }
 
 // GetUserProgressSummary handles GET /api/users/{id}/progress - shows overall progress summary
 func (h *CourseHandler) GetUserProgressSummary(w http.ResponseWriter, r *http.Request) {
+	log.Printf("User progress summary requested from IP: %s", r.RemoteAddr)
+
 	// extract user ID from URL path
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) < 4 {
-		http.Error(w, "Invalid URL path", http.StatusBadRequest)
+		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
+			"Invalid URL path in progress summary request", nil)
 		return
 	}
 
 	userIDStr := pathParts[3]
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+		SendErrorResponse(w, "Invalid user ID format", http.StatusBadRequest,
+			"Invalid user UUID in progress summary request", err)
 		return
 	}
+
+	log.Printf("Getting progress summary for user %s", userID.String())
 
 	// get progress summary
 	summary, err := h.Service.GetUserProgressSummary(r.Context(), userID)
 	if err != nil {
-		log.Printf("Error getting progress summary: %v", err)
-		http.Error(w, "Failed to get progress summary", http.StatusInternalServerError)
+		SendErrorResponse(w, "Failed to get progress summary", http.StatusInternalServerError,
+			"Error getting user progress summary", err)
 		return
 	}
 
-	response := UserProgressSummaryResponse{
-		Message: "Progress summary retrieved",
-		Data:    summary,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendSuccessResponse(w, "Progress summary retrieved", summary,
+		"User progress summary retrieved and returned")
 }
-
-// TODO: still need handlers for GetCourse, UpdateCourse, DeleteCourse

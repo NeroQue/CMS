@@ -1,22 +1,12 @@
 package handlers
 
 import (
-	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/NeroQue/course-management-backend/pkg/task"
 )
-
-// Response structs for task endpoints
-type TaskResponse struct {
-	Data *task.Task `json:"data"`
-}
-
-type TaskCleanupResponse struct {
-	Message string `json:"message"`
-	Cleaned int    `json:"cleaned"`
-}
 
 // TaskHandler handles task status requests
 type TaskHandler struct{}
@@ -28,30 +18,34 @@ func NewTaskHandler() *TaskHandler {
 
 // GetTask handles GET /api/tasks?id={taskId} - checks task status
 func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Task status requested from IP: %s", r.RemoteAddr)
+
 	// Extract task ID from request
 	taskID := r.URL.Query().Get("id")
 	if taskID == "" {
-		http.Error(w, "Task ID is required", http.StatusBadRequest)
+		SendErrorResponse(w, "Task ID is required", http.StatusBadRequest,
+			"Task status request without task ID", nil)
 		return
 	}
+
+	log.Printf("Looking up task: %s", taskID)
 
 	// check if task exists
 	t, exists := task.GetTask(taskID)
 	if !exists {
-		http.Error(w, "Task not found", http.StatusNotFound)
+		SendErrorResponse(w, "Task not found", http.StatusNotFound,
+			"Requested task does not exist: "+taskID, nil)
 		return
 	}
 
-	response := TaskResponse{
-		Data: t,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendSuccessResponse(w, "Task status retrieved", t,
+		"Task status retrieved for: "+taskID)
 }
 
 // CleanupTasks handles POST /api/tasks/cleanup - manually cleans old tasks
 func (h *TaskHandler) CleanupTasks(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Task cleanup requested from IP: %s", r.RemoteAddr)
+
 	// default to 24 hours if not specified
 	ageStr := r.URL.Query().Get("age")
 	age := 24 * time.Hour
@@ -60,19 +54,22 @@ func (h *TaskHandler) CleanupTasks(w http.ResponseWriter, r *http.Request) {
 		var err error
 		age, err = time.ParseDuration(ageStr)
 		if err != nil {
-			http.Error(w, "Invalid duration format", http.StatusBadRequest)
+			SendErrorResponse(w, "Invalid duration format", http.StatusBadRequest,
+				"Invalid age duration in task cleanup: "+ageStr, err)
 			return
 		}
 	}
 
+	log.Printf("Starting task cleanup for tasks older than: %v", age)
+
 	// trigger cleanup
 	cleaned := task.CleanupOldTasks(age)
 
-	response := TaskCleanupResponse{
-		Message: "Cleanup completed",
-		Cleaned: cleaned,
+	responseData := map[string]interface{}{
+		"cleaned": cleaned,
+		"age":     age.String(),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	SendSuccessResponse(w, "Cleanup completed", responseData,
+		"Task cleanup completed - cleaned "+string(rune(cleaned))+" tasks")
 }

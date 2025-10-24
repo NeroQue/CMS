@@ -36,3 +36,6 @@ RETURNING *;
 DELETE FROM courses
 WHERE id = $1;
 
+-- name: DeleteCoursesByCreatorID :exec
+DELETE FROM courses
+WHERE creator_id = $1;

@@ -132,11 +132,25 @@ func (s *ProfileService) DeleteProfileByID(ctx context.Context, userID uuid.UUID
 		return errors.New("user ID cannot be empty")
 	}
 
-	// let database handle the deletion
+	// First, delete all courses created by this profile to avoid foreign key constraint violations
+	// The courses table has creator_id referencing profiles(id) without CASCADE
+	// Convert uuid.UUID to uuid.NullUUID for the database call
+	creatorID := uuid.NullUUID{
+		UUID:  userID,
+		Valid: true,
+	}
+	if err := s.DB.DeleteCoursesByCreatorID(ctx, creatorID); err != nil {
+		log.Printf("Error deleting courses for profile %s: %v", userID.String(), err)
+		return fmt.Errorf("failed to delete associated courses: %w", err)
+	}
+
+	// Now we can safely delete the profile
+	// Note: user_progress records will be automatically deleted due to ON DELETE CASCADE
 	if err := s.DB.DeleteProfile(ctx, userID); err != nil {
 		log.Printf("Error deleting profile by ID: %v", err)
 		return fmt.Errorf("failed to delete profile: %w", err)
 	}
 
+	log.Printf("Successfully deleted profile %s and all associated data", userID.String())
 	return nil
 }

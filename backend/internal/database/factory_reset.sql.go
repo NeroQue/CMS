@@ -10,13 +10,11 @@ import (
 )
 
 const factoryResetDatabase = `-- name: FactoryResetDatabase :exec
-
-DELETE FROM user_progress
+TRUNCATE user_progress, sessions, content_items, modules, courses, profiles RESTART IDENTITY CASCADE
 `
 
-// Clear all data from tables in the correct order (respecting foreign keys)
-// Start with dependent tables first, then parent tables
-// Clear user progress (depends on profiles and content_items)
+// Reset the database to its initial state, RESTART IDENTITY CASCADE, means that the primary keys will be reset and any
+// incrementing columns will be reset to 1.
 func (q *Queries) FactoryResetDatabase(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, factoryResetDatabase)
 	return err

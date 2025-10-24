@@ -64,6 +64,16 @@ func (q *Queries) DeleteCourse(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteCoursesByCreatorID = `-- name: DeleteCoursesByCreatorID :exec
+DELETE FROM courses
+WHERE creator_id = $1
+`
+
+func (q *Queries) DeleteCoursesByCreatorID(ctx context.Context, creatorID uuid.NullUUID) error {
+	_, err := q.db.ExecContext(ctx, deleteCoursesByCreatorID, creatorID)
+	return err
+}
+
 const getCourse = `-- name: GetCourse :one
 SELECT id, title, description, creator_id, relative_path, created_at, updated_at FROM courses
 WHERE id = $1

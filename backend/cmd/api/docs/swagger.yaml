@@ -1,0 +1,682 @@
+basePath: /api
+definitions:
+  github_com_NeroQue_course-management-backend_internal_models.CreateCourseInput:
+    properties:
+      base_path:
+        type: string
+      creator:
+        type: string
+      creator_id:
+        type: string
+      description:
+        type: string
+      relative_path:
+        type: string
+      title:
+        type: string
+    type: object
+  github_com_NeroQue_course-management-backend_internal_models.Profile:
+    properties:
+      created_at:
+        allOf:
+        - $ref: '#/definitions/sql.NullTime'
+        description: timestamps
+      experience:
+        description: gamification stuff
+        type: integer
+      gems:
+        description: special currency
+        type: integer
+      id:
+        description: unique identifier
+        type: string
+      last_active_date:
+        allOf:
+        - $ref: '#/definitions/sql.NullTime'
+        description: for streak tracking
+      name:
+        description: display name
+        type: string
+      streak:
+        description: consecutive active days
+        type: integer
+      updated_at:
+        $ref: '#/definitions/sql.NullTime'
+    type: object
+  internal_api_handlers.BatchImportRequest:
+    properties:
+      courses:
+        items:
+          $ref: '#/definitions/github_com_NeroQue_course-management-backend_internal_models.CreateCourseInput'
+        type: array
+    type: object
+  sql.NullTime:
+    properties:
+      time:
+        type: string
+      valid:
+        description: Valid is true if Time is not NULL
+        type: boolean
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+  description: API for managing courses, modules, profiles, and user progress in a
+    learning management system
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: Course Management System API
+  version: "1.0"
+paths:
+  /admin/factory-reset:
+    post:
+      consumes:
+      - application/json
+      description: Clear all data from the database (use with caution!)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Database reset successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Factory reset database
+      tags:
+      - admin
+  /admin/stats:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve basic statistics about the database (counts of profiles,
+        courses, etc.)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Database statistics
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get database statistics
+      tags:
+      - admin
+  /content/{id}/complete:
+    post:
+      consumes:
+      - application/json
+      description: Mark a specific content item as completed for a user
+      parameters:
+      - description: Content Item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User ID
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            user_id:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Content marked as completed
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request format or missing user ID
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Mark content as completed
+      tags:
+      - progress
+  /content/{id}/progress:
+    post:
+      consumes:
+      - application/json
+      description: Update progress information for a specific content item
+      parameters:
+      - description: Content Item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Progress update data
+        in: body
+        name: progress
+        required: true
+        schema:
+          properties:
+            completed:
+              type: boolean
+            last_position:
+              type: number
+            progress_pct:
+              type: number
+            user_id:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Progress updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request format or missing fields
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update content progress
+      tags:
+      - progress
+  /courses:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all available courses
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved courses
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List all courses
+      tags:
+      - courses
+    post:
+      consumes:
+      - application/json
+      description: Import a new course from a directory path
+      parameters:
+      - description: Course creation input with title and relative_path
+        in: body
+        name: course
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_NeroQue_course-management-backend_internal_models.CreateCourseInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Course created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request format or missing required fields
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: User must be logged in
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionAuth: []
+      summary: Create a new course
+      tags:
+      - courses
+  /courses/{id}/progress:
+    get:
+      consumes:
+      - application/json
+      description: Get progress information for a specific course and user
+      parameters:
+      - description: Course ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User ID
+        in: query
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Course progress information
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid course or user ID
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get course progress
+      tags:
+      - progress
+  /courses/batch:
+    post:
+      consumes:
+      - application/json
+      description: Import multiple courses at once from provided course inputs
+      parameters:
+      - description: Batch import request with array of courses
+        in: body
+        name: batchRequest
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api_handlers.BatchImportRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Returns task ID for tracking import progress
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request format or empty course list
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: User must be logged in
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionAuth: []
+      summary: Batch import courses
+      tags:
+      - courses
+  /courses/directories:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all available course directories in the filesystem
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved directories
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List course directories
+      tags:
+      - courses
+  /courses/scan:
+    get:
+      consumes:
+      - application/json
+      description: Find course directories that haven't been imported yet
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully scanned for new courses
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Scan for new courses
+      tags:
+      - courses
+  /modules/{id}/progress:
+    get:
+      consumes:
+      - application/json
+      description: Get progress information for a specific module and user
+      parameters:
+      - description: Module ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User ID
+        in: query
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Module progress information
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid module or user ID
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get module progress
+      tags:
+      - progress
+  /profiles:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a user profile by ID
+      parameters:
+      - description: Delete request with user_id
+        in: body
+        name: deleteRequest
+        required: true
+        schema:
+          properties:
+            user_id:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile deleted successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request format or missing user ID
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete a profile
+      tags:
+      - profiles
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all user profiles in the system
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved profiles
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List all profiles
+      tags:
+      - profiles
+    post:
+      consumes:
+      - application/json
+      description: Create a new user profile with the provided name
+      parameters:
+      - description: Profile object with name field
+        in: body
+        name: profile
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_NeroQue_course-management-backend_internal_models.Profile'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Profile created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request format or missing required fields
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create a new profile
+      tags:
+      - profiles
+    put:
+      consumes:
+      - application/json
+      description: Update an existing profile's name
+      parameters:
+      - description: Update request with user_id and new_name
+        in: body
+        name: updateRequest
+        required: true
+        schema:
+          properties:
+            new_name:
+              type: string
+            user_id:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request format or missing required fields
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update a profile
+      tags:
+      - profiles
+  /profiles/{id}/select:
+    post:
+      consumes:
+      - application/json
+      description: Set a profile as the currently active user profile
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile selected successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid profile ID format
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Profile not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Select an active profile
+      tags:
+      - profiles
+  /tasks:
+    get:
+      consumes:
+      - application/json
+      description: Get the current status and result of a background task
+      parameters:
+      - description: Task ID
+        in: query
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Task status and information
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Missing or invalid task ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Task not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get task status
+      tags:
+      - tasks
+  /tasks/cleanup:
+    post:
+      consumes:
+      - application/json
+      description: Manually trigger cleanup of old completed tasks
+      parameters:
+      - description: Age duration (e.g., '24h', '1h30m'). Defaults to 24h
+        in: query
+        name: age
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Number of tasks cleaned up
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid duration format
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Cleanup old tasks
+      tags:
+      - tasks
+  /users/{id}/progress:
+    get:
+      consumes:
+      - application/json
+      description: Get overall progress summary for a user across all courses
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User progress summary
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid user ID
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get user progress summary
+      tags:
+      - progress
+schemes:
+- http
+- https
+securityDefinitions:
+  SessionAuth:
+    in: cookie
+    name: session_id
+    type: apiKey
+swagger: "2.0"

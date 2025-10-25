@@ -18,6 +18,14 @@ func NewAdminHandler(service *services.AdminService) *AdminHandler {
 }
 
 // FactoryReset handles POST /api/admin/factory-reset - clears all database data
+// @Summary Factory reset database
+// @Description Clear all data from the database (use with caution!)
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Database reset successfully"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /admin/factory-reset [post]
 func (h *AdminHandler) FactoryReset(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Factory reset requested from IP: %s", r.RemoteAddr)
 
@@ -34,6 +42,14 @@ func (h *AdminHandler) FactoryReset(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetStats handles GET /api/admin/stats - shows basic database statistics
+// @Summary Get database statistics
+// @Description Retrieve basic statistics about the database (counts of profiles, courses, etc.)
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Database statistics"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /admin/stats [get]
 func (h *AdminHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Database stats requested from IP: %s", r.RemoteAddr)
 

@@ -11,6 +11,8 @@ import (
 	"github.com/NeroQue/course-management-backend/internal/services"
 	"github.com/NeroQue/course-management-backend/pkg/parser"
 	"github.com/NeroQue/course-management-backend/pkg/task"
+
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 // Server holds all the app components together
@@ -55,6 +57,9 @@ func NewServer(db *sql.DB, courseParser *parser.CourseParser) *Server {
 
 // setupRoutes maps all the endpoints to handler functions
 func (s *Server) setupRoutes() {
+	// Swagger documentation
+	s.Router.HandleFunc("GET /swagger/", httpSwagger.WrapHandler)
+
 	s.Router.HandleFunc("/api", s.HelloHandler)
 
 	// profile management

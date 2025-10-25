@@ -22,6 +22,14 @@ func NewProfileHandler(service *services.ProfileService) *ProfileHandler {
 }
 
 // List handles GET /api/profiles - returns all user profiles
+// @Summary List all profiles
+// @Description Get a list of all user profiles in the system
+// @Tags profiles
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Successfully retrieved profiles"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /profiles [get]
 func (h *ProfileHandler) List(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Profile list requested from IP: %s", r.RemoteAddr)
 
@@ -38,6 +46,16 @@ func (h *ProfileHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create handles POST /api/profiles - makes new profile
+// @Summary Create a new profile
+// @Description Create a new user profile with the provided name
+// @Tags profiles
+// @Accept json
+// @Produce json
+// @Param profile body models.Profile true "Profile object with name field"
+// @Success 201 {object} map[string]interface{} "Profile created successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid request format or missing required fields"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /profiles [post]
 func (h *ProfileHandler) Create(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Profile creation requested from IP: %s", r.RemoteAddr)
 
@@ -71,6 +89,16 @@ func (h *ProfileHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update handles PUT /api/profiles - updates existing profile
+// @Summary Update a profile
+// @Description Update an existing profile's name
+// @Tags profiles
+// @Accept json
+// @Produce json
+// @Param updateRequest body object{user_id=string,new_name=string} true "Update request with user_id and new_name"
+// @Success 200 {object} map[string]interface{} "Profile updated successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid request format or missing required fields"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /profiles [put]
 func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Profile update requested from IP: %s", r.RemoteAddr)
 
@@ -115,6 +143,16 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete handles DELETE /api/profiles - removes a profile
+// @Summary Delete a profile
+// @Description Delete a user profile by ID
+// @Tags profiles
+// @Accept json
+// @Produce json
+// @Param deleteRequest body object{user_id=string} true "Delete request with user_id"
+// @Success 200 {object} map[string]interface{} "Profile deleted successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid request format or missing user ID"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /profiles [delete]
 func (h *ProfileHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Profile deletion requested from IP: %s", r.RemoteAddr)
 
@@ -150,6 +188,17 @@ func (h *ProfileHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // SelectProfile handles POST /api/profiles/{id}/select - sets active profile
+// @Summary Select an active profile
+// @Description Set a profile as the currently active user profile
+// @Tags profiles
+// @Accept json
+// @Produce json
+// @Param id path string true "Profile ID"
+// @Success 200 {object} map[string]interface{} "Profile selected successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid profile ID format"
+// @Failure 404 {object} map[string]interface{} "Profile not found"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /profiles/{id}/select [post]
 func (h *ProfileHandler) SelectProfile(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Profile selection requested from IP: %s", r.RemoteAddr)
 

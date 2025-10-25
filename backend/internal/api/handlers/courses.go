@@ -39,6 +39,14 @@ func NewCourseHandler(service *services.CourseService) *CourseHandler {
 }
 
 // List handles GET /api/courses - returns all courses
+// @Summary List all courses
+// @Description Get a list of all available courses
+// @Tags courses
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Successfully retrieved courses"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /courses [get]
 func (h *CourseHandler) List(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Course list requested from IP: %s", r.RemoteAddr)
 
@@ -55,6 +63,18 @@ func (h *CourseHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create handles POST /api/courses - makes new course from directory
+// @Summary Create a new course
+// @Description Import a new course from a directory path
+// @Tags courses
+// @Accept json
+// @Produce json
+// @Param course body models.CreateCourseInput true "Course creation input with title and relative_path"
+// @Success 201 {object} map[string]interface{} "Course created successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid request format or missing required fields"
+// @Failure 401 {object} map[string]interface{} "User must be logged in"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security SessionAuth
+// @Router /courses [post]
 func (h *CourseHandler) Create(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Course creation requested from IP: %s", r.RemoteAddr)
 
@@ -106,6 +126,14 @@ func (h *CourseHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListDirectories handles GET /api/courses/directories - shows available dirs
+// @Summary List course directories
+// @Description Get a list of all available course directories in the filesystem
+// @Tags courses
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Successfully retrieved directories"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /courses/directories [get]
 func (h *CourseHandler) ListDirectories(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Course directories list requested from IP: %s", r.RemoteAddr)
 
@@ -121,6 +149,14 @@ func (h *CourseHandler) ListDirectories(w http.ResponseWriter, r *http.Request) 
 }
 
 // ScanNewCourses handles GET /api/courses/scan - finds dirs not imported yet
+// @Summary Scan for new courses
+// @Description Find course directories that haven't been imported yet
+// @Tags courses
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Successfully scanned for new courses"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /courses/scan [get]
 func (h *CourseHandler) ScanNewCourses(w http.ResponseWriter, r *http.Request) {
 	log.Printf("New courses scan requested from IP: %s", r.RemoteAddr)
 
@@ -143,6 +179,18 @@ func (h *CourseHandler) ScanNewCourses(w http.ResponseWriter, r *http.Request) {
 }
 
 // BatchImport handles POST /api/courses/batch - imports multiple courses at once
+// @Summary Batch import courses
+// @Description Import multiple courses at once from provided course inputs
+// @Tags courses
+// @Accept json
+// @Produce json
+// @Param batchRequest body BatchImportRequest true "Batch import request with array of courses"
+// @Success 200 {object} map[string]interface{} "Returns task ID for tracking import progress"
+// @Failure 400 {object} map[string]interface{} "Invalid request format or empty course list"
+// @Failure 401 {object} map[string]interface{} "User must be logged in"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security SessionAuth
+// @Router /courses/batch [post]
 func (h *CourseHandler) BatchImport(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Batch course import requested from IP: %s", r.RemoteAddr)
 
@@ -213,6 +261,17 @@ func (h *CourseHandler) BatchImport(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetCourseProgress handles GET /api/courses/{id}/progress?user_id={uuid} - shows course progress for user
+// @Summary Get course progress
+// @Description Get progress information for a specific course and user
+// @Tags progress
+// @Accept json
+// @Produce json
+// @Param id path string true "Course ID"
+// @Param user_id query string true "User ID"
+// @Success 200 {object} map[string]interface{} "Course progress information"
+// @Failure 400 {object} map[string]interface{} "Invalid course or user ID"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /courses/{id}/progress [get]
 func (h *CourseHandler) GetCourseProgress(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Course progress requested from IP: %s", r.RemoteAddr)
 
@@ -262,6 +321,17 @@ func (h *CourseHandler) GetCourseProgress(w http.ResponseWriter, r *http.Request
 }
 
 // GetModuleProgress handles GET /api/modules/{id}/progress?user_id={uuid} - shows module progress for user
+// @Summary Get module progress
+// @Description Get progress information for a specific module and user
+// @Tags progress
+// @Accept json
+// @Produce json
+// @Param id path string true "Module ID"
+// @Param user_id query string true "User ID"
+// @Success 200 {object} map[string]interface{} "Module progress information"
+// @Failure 400 {object} map[string]interface{} "Invalid module or user ID"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /modules/{id}/progress [get]
 func (h *CourseHandler) GetModuleProgress(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Module progress requested from IP: %s", r.RemoteAddr)
 
@@ -311,6 +381,17 @@ func (h *CourseHandler) GetModuleProgress(w http.ResponseWriter, r *http.Request
 }
 
 // UpdateContentProgress handles POST /api/content/{id}/progress - updates progress for content item
+// @Summary Update content progress
+// @Description Update progress information for a specific content item
+// @Tags progress
+// @Accept json
+// @Produce json
+// @Param id path string true "Content Item ID"
+// @Param progress body object{user_id=string,progress_pct=number,last_position=number,completed=boolean} true "Progress update data"
+// @Success 200 {object} map[string]interface{} "Progress updated successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid request format or missing fields"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /content/{id}/progress [post]
 func (h *CourseHandler) UpdateContentProgress(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Content progress update requested from IP: %s", r.RemoteAddr)
 
@@ -368,6 +449,17 @@ func (h *CourseHandler) UpdateContentProgress(w http.ResponseWriter, r *http.Req
 }
 
 // MarkContentCompleted handles POST /api/content/{id}/complete - marks content as completed
+// @Summary Mark content as completed
+// @Description Mark a specific content item as completed for a user
+// @Tags progress
+// @Accept json
+// @Produce json
+// @Param id path string true "Content Item ID"
+// @Param request body object{user_id=string} true "User ID"
+// @Success 200 {object} map[string]interface{} "Content marked as completed"
+// @Failure 400 {object} map[string]interface{} "Invalid request format or missing user ID"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /content/{id}/complete [post]
 func (h *CourseHandler) MarkContentCompleted(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Content completion requested from IP: %s", r.RemoteAddr)
 
@@ -421,6 +513,16 @@ func (h *CourseHandler) MarkContentCompleted(w http.ResponseWriter, r *http.Requ
 }
 
 // GetUserProgressSummary handles GET /api/users/{id}/progress - shows overall progress summary
+// @Summary Get user progress summary
+// @Description Get overall progress summary for a user across all courses
+// @Tags progress
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} map[string]interface{} "User progress summary"
+// @Failure 400 {object} map[string]interface{} "Invalid user ID"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /users/{id}/progress [get]
 func (h *CourseHandler) GetUserProgressSummary(w http.ResponseWriter, r *http.Request) {
 	log.Printf("User progress summary requested from IP: %s", r.RemoteAddr)
 

@@ -14,7 +14,28 @@ import (
 	"github.com/NeroQue/course-management-backend/pkg/util"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+
+	_ "github.com/NeroQue/course-management-backend/cmd/api/docs"
 )
+
+// @title Course Management System API
+// @version 1.0
+// @description API for managing courses, modules, profiles, and user progress in a learning management system
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.email support@example.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /api
+// @schemes http https
+
+// @securityDefinitions.apikey SessionAuth
+// @in cookie
+// @name session_id
 
 // main entry point - sets up everything and starts the server
 func main() {

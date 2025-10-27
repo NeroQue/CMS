@@ -13,7 +13,7 @@ COPY backend/ .
 COPY .env .
 
 # Build the application
-RUN go build -o server ./cmd/...
+RUN go build -o server ./cmd/api
 
 # Run stage
 FROM gcr.io/distroless/base-debian12

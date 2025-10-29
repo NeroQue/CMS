@@ -228,6 +228,12 @@ func (p *CourseParser) scanModuleForContentRecursive(modulePath, basePath string
 			}
 			contentItems = append(contentItems, subContentItems...)
 		} else {
+			// Skip subtitle files from being shown as separate content items
+			ext := strings.ToLower(filepath.Ext(entry.Name()))
+			if ext == ".srt" || ext == ".vtt" || ext == ".sub" {
+				continue
+			}
+
 			// process file
 			info, err := entry.Info()
 			if err != nil {

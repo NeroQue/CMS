@@ -1,6 +1,8 @@
 import React, {useState, useEffect, JSX} from 'react'
 import { Profile, Course, ApiResponse } from '../types/models'
 import ProfileCreation from './ProfileCreation'
+import CourseScanner from './CourseScanner'
+import CourseDetail from './CourseDetail'
 import './HomePage.css'
 
 function HomePage(): JSX.Element {
@@ -9,6 +11,8 @@ function HomePage(): JSX.Element {
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [showProfileCreation, setShowProfileCreation] = useState<boolean>(false)
+  const [showCourseScanner, setShowCourseScanner] = useState<boolean>(false)
+  const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
 
   const baseURL = 'http://localhost:8080'
 
@@ -75,8 +79,37 @@ function HomePage(): JSX.Element {
     setShowProfileCreation(false)
   }
 
+  const handleCoursesImported = (): void => {
+    setShowCourseScanner(false)
+    fetchCourses()
+  }
+
+  const handleCancelScanner = (): void => {
+    setShowCourseScanner(false)
+  }
+
+  const handleCourseClick = (courseId: string): void => {
+    setSelectedCourse(courseId)
+  }
+
+  const handleBackToCourses = (): void => {
+    setSelectedCourse(null)
+    fetchCourses()
+  }
+
   if (loading) {
     return <div className="loading">Loading...</div>
+  }
+
+  // Show course detail view if a course is selected
+  if (selectedCourse && selectedProfile) {
+    return (
+      <CourseDetail
+        courseId={selectedCourse}
+        userId={selectedProfile.id}
+        onBack={handleBackToCourses}
+      />
+    )
   }
 
   return (
@@ -157,7 +190,16 @@ function HomePage(): JSX.Element {
               </div>
             </div>
 
-            <h2>Available Courses</h2>
+            <div className="courses-section-header">
+              <h2>Available Courses</h2>
+              <button
+                className="import-courses-button"
+                onClick={() => setShowCourseScanner(true)}
+              >
+                📥 Import Courses
+              </button>
+            </div>
+
             <div className="courses-grid">
               {courses.length > 0 ? (
                 courses.map((course) => (
@@ -171,7 +213,10 @@ function HomePage(): JSX.Element {
                       <span className="course-modules">
                         {course.modules?.length || 0} modules
                       </span>
-                      <button className="course-button" disabled>
+                      <button
+                        className="course-button"
+                        onClick={() => handleCourseClick(course.id)}
+                      >
                         Start Course
                       </button>
                     </div>
@@ -179,7 +224,13 @@ function HomePage(): JSX.Element {
                 ))
               ) : (
                 <div className="no-courses">
-                  <p>No courses available yet. Check back soon!</p>
+                  <p>No courses available yet.</p>
+                  <button
+                    className="import-courses-button-large"
+                    onClick={() => setShowCourseScanner(true)}
+                  >
+                    📥 Import Your First Course
+                  </button>
                 </div>
               )}
             </div>
@@ -192,6 +243,14 @@ function HomePage(): JSX.Element {
         <ProfileCreation
           onProfileCreated={handleProfileCreated}
           onCancel={handleCancelCreation}
+        />
+      )}
+
+      {/* Course Scanner Modal */}
+      {showCourseScanner && (
+        <CourseScanner
+          onCoursesImported={handleCoursesImported}
+          onCancel={handleCancelScanner}
         />
       )}
     </div>

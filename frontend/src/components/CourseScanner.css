@@ -1,0 +1,318 @@
+/* Course Scanner Modal Overlay */
+.course-scanner-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* Course Scanner Container */
+.course-scanner-container {
+  background: white;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Header */
+.scanner-header {
+  padding: 25px 30px;
+  border-bottom: 2px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.scanner-header h2 {
+  margin: 0;
+  color: #000;
+  font-size: 24px;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 32px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+}
+
+.close-button:hover:not(:disabled) {
+  color: #000;
+}
+
+.close-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Content */
+.scanner-content {
+  padding: 30px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Scan Button */
+.scan-button {
+  width: 100%;
+  padding: 15px;
+  background: #8BC040;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+
+.scan-button:hover:not(:disabled) {
+  background: #7AA835;
+}
+
+.scan-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Messages */
+.message {
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  font-size: 15px;
+}
+
+.error-message {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef5350;
+}
+
+.success-message {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #66bb6a;
+}
+
+/* Directories Section */
+.directories-section {
+  margin-top: 20px;
+}
+
+.directories-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.directories-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #000;
+}
+
+.select-all-button {
+  padding: 8px 16px;
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.select-all-button:hover {
+  background: #e0e0e0;
+}
+
+/* Directories List */
+.directories-list {
+  border: 2px solid #e0e0e0;
+  border-radius: 5px;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+
+.directory-item {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+}
+
+.directory-item:last-child {
+  border-bottom: none;
+}
+
+.directory-item:hover {
+  background: #f9f9f9;
+}
+
+.directory-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin-right: 15px;
+  cursor: pointer;
+}
+
+.directory-info {
+  flex: 1;
+}
+
+.directory-name {
+  font-size: 16px;
+  font-weight: bold;
+  color: #000;
+  margin-bottom: 5px;
+}
+
+.directory-path {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Import Button */
+.import-button {
+  width: 100%;
+  padding: 15px;
+  background: #8BC040;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.import-button:hover:not(:disabled) {
+  background: #7AA835;
+}
+
+.import-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Import Progress */
+.import-progress {
+  text-align: center;
+}
+
+.import-progress h3 {
+  margin-bottom: 20px;
+  color: #000;
+  font-size: 20px;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 30px;
+  background: #f0f0f0;
+  border-radius: 15px;
+  overflow: hidden;
+  margin-bottom: 15px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8BC040 0%, #7AA835 100%);
+  transition: width 0.3s ease;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: #666;
+}
+
+.progress-info span:first-child {
+  font-weight: bold;
+  font-size: 18px;
+  color: #8BC040;
+}
+
+/* Footer */
+.scanner-footer {
+  padding: 20px 30px;
+  border-top: 2px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cancel-footer-button {
+  padding: 10px 20px;
+  background: #ccc;
+  color: #333;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.cancel-footer-button:hover:not(:disabled) {
+  background: #bbb;
+}
+
+.cancel-footer-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .course-scanner-container {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .scanner-header {
+    padding: 20px;
+  }
+
+  .scanner-header h2 {
+    font-size: 20px;
+  }
+
+  .scanner-content {
+    padding: 20px;
+  }
+
+  .directories-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .select-all-button {
+    width: 100%;
+  }
+
+  .directory-name {
+    font-size: 14px;
+  }
+
+  .directory-path {
+    font-size: 12px;
+  }
+}

@@ -67,16 +67,17 @@ export interface Task {
 }
 
 // UserProgress tracks how far a user has gotten through content
+// Note: field names match Go struct serialization (PascalCase from database models)
 export interface UserProgress {
-  id: string;
-  user_id: string;
-  content_item_id: string;
-  completed: boolean;
-  progress_pct: number; // 0-100
-  last_position?: number; // seconds (for videos)
-  last_accessed?: string;
-  created_at?: string;
-  updated_at?: string;
+  ID: string;
+  UserID: string;
+  ContentItemID: string;
+  Completed: boolean;
+  ProgressPct: number; // 0-100
+  LastPosition?: { Int32: number; Valid: boolean }; // sql.NullInt32
+  LastAccessed?: { Time: string; Valid: boolean }; // sql.NullTime
+  CreatedAt?: { Time: string; Valid: boolean };
+  UpdatedAt?: { Time: string; Valid: boolean };
 }
 
 // API response wrapper
@@ -85,4 +86,71 @@ export interface ApiResponse<T> {
   data?: T;
   message?: string;
   error?: string;
+}
+
+// Course directory info from filesystem scan
+export interface CourseDirectory {
+  path: string
+  relative_path: string
+  name: string
+  size: number
+  is_dir: boolean
+}
+
+// For creating courses during import
+export interface CreateCourseInput {
+  title: string
+  relative_path: string
+  description?: string
+}
+
+// Scan response
+export interface ScanResponse {
+  count: number
+  directories: CourseDirectory[]
+}
+
+// Batch import response
+export interface BatchImportResponse {
+  success_count: number
+  failure_count: number
+  imported_courses: Course[]
+  errors?: string[]
+}
+
+// Progress for a single module
+export interface ModuleProgress {
+  module_id: string
+  user_id: string
+  completed_items: number
+  total_items: number
+  completion_pct: number
+  is_completed: boolean
+  last_accessed_at?: string
+}
+
+// Overall course progress
+export interface CourseProgress {
+  course_id: string
+  user_id: string
+  completed_modules: number
+  total_modules: number
+  completed_items: number
+  total_items: number
+  completion_pct: number
+  is_completed: boolean
+  last_accessed_at?: string
+  modules?: ModuleProgress[]
+}
+
+// Request to save video progress
+export interface SaveProgressRequest {
+  user_id: string
+  last_position: number
+  progress_pct: number
+}
+
+// Request to mark content as complete
+export interface CompleteContentRequest {
+  user_id: string
 }

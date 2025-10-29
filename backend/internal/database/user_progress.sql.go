@@ -12,6 +12,21 @@ import (
 	"github.com/google/uuid"
 )
 
+const deleteUserProgress = `-- name: DeleteUserProgress :exec
+DELETE FROM user_progress
+WHERE user_id = $1 AND content_item_id = $2
+`
+
+type DeleteUserProgressParams struct {
+	UserID        uuid.UUID
+	ContentItemID uuid.UUID
+}
+
+func (q *Queries) DeleteUserProgress(ctx context.Context, arg DeleteUserProgressParams) error {
+	_, err := q.db.ExecContext(ctx, deleteUserProgress, arg.UserID, arg.ContentItemID)
+	return err
+}
+
 const getCourseProgressStats = `-- name: GetCourseProgressStats :one
 SELECT
     COUNT(DISTINCT m.id) as total_modules,

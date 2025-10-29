@@ -43,3 +43,8 @@ FROM modules m
 LEFT JOIN content_items ci ON m.id = ci.module_id
 LEFT JOIN user_progress up ON ci.id = up.content_item_id AND up.user_id = $2
 WHERE m.course_id = $1;
+
+-- name: DeleteUserProgress :exec
+DELETE FROM user_progress
+WHERE user_id = $1 AND content_item_id = $2;
+

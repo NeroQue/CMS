@@ -1,5 +1,6 @@
 import React, {useState, useEffect, JSX} from 'react'
 import { Profile, Course, ApiResponse } from '../types/models'
+import ProfileCreation from './ProfileCreation'
 import './HomePage.css'
 
 function HomePage(): JSX.Element {
@@ -7,6 +8,7 @@ function HomePage(): JSX.Element {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState<boolean>(true)
+  const [showProfileCreation, setShowProfileCreation] = useState<boolean>(false)
 
   const baseURL = 'http://localhost:8080'
 
@@ -64,6 +66,15 @@ function HomePage(): JSX.Element {
     setCourses([])
   }
 
+  const handleProfileCreated = (): void => {
+    setShowProfileCreation(false)
+    fetchProfiles()
+  }
+
+  const handleCancelCreation = (): void => {
+    setShowProfileCreation(false)
+  }
+
   if (loading) {
     return <div className="loading">Loading...</div>
   }
@@ -112,9 +123,25 @@ function HomePage(): JSX.Element {
               ) : (
                 <div className="no-profiles">
                   <p>No profiles found. Create one to get started!</p>
+                  <button
+                    className="create-profile-button"
+                    onClick={() => setShowProfileCreation(true)}
+                  >
+                    Create New Profile
+                  </button>
                 </div>
               )}
             </div>
+
+            {/* Add Profile Creation button for existing profiles too */}
+            {profiles.length > 0 && (
+              <button
+                className="add-profile-button"
+                onClick={() => setShowProfileCreation(true)}
+              >
+                + Add Another Profile
+              </button>
+            )}
           </div>
         ) : (
           // Courses View
@@ -159,6 +186,14 @@ function HomePage(): JSX.Element {
           </div>
         )}
       </main>
+
+      {/* Profile Creation Modal */}
+      {showProfileCreation && (
+        <ProfileCreation
+          onProfileCreated={handleProfileCreated}
+          onCancel={handleCancelCreation}
+        />
+      )}
     </div>
   )
 }

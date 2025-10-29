@@ -40,7 +40,7 @@ import (
 // main entry point - sets up everything and starts the server
 func main() {
 	// load .env file if it exists
-	err := godotenv.Load()
+	err := godotenv.Load(".env")
 	if err != nil {
 		log.Printf("Warning: Failed to load .env file: %s\n", err)
 		// not a big deal - Docker will set these anyway

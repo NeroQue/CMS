@@ -715,6 +715,7 @@ func (s *CourseService) CalculateCourseProgress(ctx context.Context, userID, cou
 	totalCompletedItems := 0
 	totalItems := 0
 	var lastAccessed *time.Time
+	var moduleProgresses []*models.ModuleProgress
 
 	for _, module := range modules {
 		moduleProgress, err := s.CalculateModuleProgress(ctx, userID, module.ID)
@@ -722,6 +723,9 @@ func (s *CourseService) CalculateCourseProgress(ctx context.Context, userID, cou
 			log.Printf("Error calculating module progress for %s: %v", module.ID, err)
 			continue
 		}
+
+		// add to list of module progresses
+		moduleProgresses = append(moduleProgresses, moduleProgress)
 
 		if moduleProgress.IsCompleted {
 			completedModules++
@@ -755,6 +759,7 @@ func (s *CourseService) CalculateCourseProgress(ctx context.Context, userID, cou
 		CompletionPct:    completionPct,
 		LastAccessedAt:   lastAccessed,
 		IsCompleted:      isCompleted,
+		Modules:          moduleProgresses,
 	}, nil
 }
 

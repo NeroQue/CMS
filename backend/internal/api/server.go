@@ -22,10 +22,11 @@ type Server struct {
 	Router *http.ServeMux // handles routing requests
 
 	// handlers for different parts of the API
-	ProfileHandler *handlers.ProfileHandler
-	CourseHandler  *handlers.CourseHandler
-	TaskHandler    *handlers.TaskHandler
-	AdminHandler   *handlers.AdminHandler // for admin operations
+	ProfileHandler  *handlers.ProfileHandler
+	CourseHandler   *handlers.CourseHandler
+	ProgressHandler *handlers.ProgressHandler
+	TaskHandler     *handlers.TaskHandler
+	AdminHandler    *handlers.AdminHandler // for admin operations
 }
 
 // NewServer wires up all the dependencies and returns a ready-to-use server
@@ -43,12 +44,13 @@ func NewServer(db *sql.DB, courseParser *parser.CourseParser) *Server {
 
 	// wire everything together
 	server := &Server{
-		DB:             dbQueries,
-		Router:         http.NewServeMux(),
-		ProfileHandler: handlers.NewProfileHandler(profileSvc),
-		CourseHandler:  handlers.NewCourseHandler(courseSvc),
-		TaskHandler:    handlers.NewTaskHandler(),
-		AdminHandler:   handlers.NewAdminHandler(adminSvc),
+		DB:              dbQueries,
+		Router:          http.NewServeMux(),
+		ProfileHandler:  handlers.NewProfileHandler(profileSvc),
+		CourseHandler:   handlers.NewCourseHandler(courseSvc),
+		ProgressHandler: handlers.NewProgressHandler(courseSvc),
+		TaskHandler:     handlers.NewTaskHandler(),
+		AdminHandler:    handlers.NewAdminHandler(adminSvc),
 	}
 
 	server.setupRoutes()
@@ -71,17 +73,21 @@ func (s *Server) setupRoutes() {
 
 	// course stuff
 	s.Router.HandleFunc("GET /api/courses", s.CourseHandler.List)
+	s.Router.HandleFunc("GET /api/courses/{id}", s.CourseHandler.Get)
 	s.Router.HandleFunc("POST /api/courses", s.CourseHandler.Create)
 	s.Router.HandleFunc("GET /api/courses/directories", s.CourseHandler.ListDirectories)
 	s.Router.HandleFunc("GET /api/courses/scan", s.CourseHandler.ScanNewCourses)
 	s.Router.HandleFunc("POST /api/courses/batch", s.CourseHandler.BatchImport)
+	s.Router.HandleFunc("GET /api/content/{id}/file", s.CourseHandler.ServeContentFile)
 
 	// progress tracking endpoints
-	s.Router.HandleFunc("GET /api/courses/{id}/progress", s.CourseHandler.GetCourseProgress)
-	s.Router.HandleFunc("GET /api/modules/{id}/progress", s.CourseHandler.GetModuleProgress)
-	s.Router.HandleFunc("POST /api/content/{id}/progress", s.CourseHandler.UpdateContentProgress)
-	s.Router.HandleFunc("POST /api/content/{id}/complete", s.CourseHandler.MarkContentCompleted)
-	s.Router.HandleFunc("GET /api/users/{id}/progress", s.CourseHandler.GetUserProgressSummary)
+	s.Router.HandleFunc("GET /api/courses/{id}/progress", s.ProgressHandler.GetCourseProgress)
+	s.Router.HandleFunc("DELETE /api/courses/{id}/progress", s.ProgressHandler.ResetCourseProgress)
+	s.Router.HandleFunc("GET /api/modules/{id}/progress", s.ProgressHandler.GetModuleProgress)
+	s.Router.HandleFunc("GET /api/content/{id}/progress", s.ProgressHandler.GetContentProgress)
+	s.Router.HandleFunc("POST /api/content/{id}/progress", s.ProgressHandler.UpdateContentProgress)
+	s.Router.HandleFunc("POST /api/content/{id}/complete", s.ProgressHandler.MarkContentCompleted)
+	s.Router.HandleFunc("GET /api/users/{id}/progress", s.ProgressHandler.GetUserProgressSummary)
 
 	// admin endpoints
 	s.Router.HandleFunc("POST /api/admin/factory-reset", s.AdminHandler.FactoryReset)

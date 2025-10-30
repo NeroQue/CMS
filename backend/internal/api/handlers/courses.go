@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -60,6 +61,51 @@ func (h *CourseHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	SendSuccessResponse(w, "Courses retrieved successfully", courses,
 		"Successfully retrieved and returned course list")
+}
+
+// Get handles GET /api/courses/{id} - returns single course with modules and content
+// @Summary Get a course by ID
+// @Description Get detailed information about a specific course including modules and content items
+// @Tags courses
+// @Accept json
+// @Produce json
+// @Param id path string true "Course ID"
+// @Success 200 {object} map[string]interface{} "Successfully retrieved course"
+// @Failure 400 {object} map[string]interface{} "Invalid course ID"
+// @Failure 404 {object} map[string]interface{} "Course not found"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /courses/{id} [get]
+func (h *CourseHandler) Get(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Course detail requested from IP: %s", r.RemoteAddr)
+
+	// extract course ID from URL path
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 4 {
+		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
+			"Invalid URL path in course detail request", nil)
+		return
+	}
+
+	courseIDStr := pathParts[3]
+	courseID, err := uuid.Parse(courseIDStr)
+	if err != nil {
+		SendErrorResponse(w, "Invalid course ID format", http.StatusBadRequest,
+			"Invalid course UUID in detail request", err)
+		return
+	}
+
+	log.Printf("Getting course details for course %s", courseID.String())
+
+	// get course with modules and content items
+	course, err := h.Service.GetCourse(r.Context(), courseID)
+	if err != nil {
+		SendErrorResponse(w, "Failed to get course", http.StatusNotFound,
+			"Error getting course details", err)
+		return
+	}
+
+	SendSuccessResponse(w, "Course retrieved successfully", course,
+		"Course details retrieved and returned")
 }
 
 // Create handles POST /api/courses - makes new course from directory
@@ -260,146 +306,25 @@ func (h *CourseHandler) BatchImport(w http.ResponseWriter, r *http.Request) {
 		"Batch import task created with ID: "+taskID)
 }
 
-// GetCourseProgress handles GET /api/courses/{id}/progress?user_id={uuid} - shows course progress for user
-// @Summary Get course progress
-// @Description Get progress information for a specific course and user
-// @Tags progress
-// @Accept json
-// @Produce json
-// @Param id path string true "Course ID"
-// @Param user_id query string true "User ID"
-// @Success 200 {object} map[string]interface{} "Course progress information"
-// @Failure 400 {object} map[string]interface{} "Invalid course or user ID"
-// @Failure 500 {object} map[string]interface{} "Internal server error"
-// @Router /courses/{id}/progress [get]
-func (h *CourseHandler) GetCourseProgress(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Course progress requested from IP: %s", r.RemoteAddr)
-
-	// extract course ID from URL path
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 4 {
-		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
-			"Invalid URL path in course progress request", nil)
-		return
-	}
-
-	courseIDStr := pathParts[3]
-	courseID, err := uuid.Parse(courseIDStr)
-	if err != nil {
-		SendErrorResponse(w, "Invalid course ID format", http.StatusBadRequest,
-			"Invalid course UUID in progress request", err)
-		return
-	}
-
-	// get user ID from query params
-	userIDStr := r.URL.Query().Get("user_id")
-	if userIDStr == "" {
-		SendErrorResponse(w, "user_id query parameter is required", http.StatusBadRequest,
-			"Missing user_id parameter in progress request", nil)
-		return
-	}
-
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		SendErrorResponse(w, "Invalid user ID format", http.StatusBadRequest,
-			"Invalid user UUID in progress request", err)
-		return
-	}
-
-	log.Printf("Calculating course progress for course %s and user %s", courseID.String(), userID.String())
-
-	// calculate course progress
-	progress, err := h.Service.CalculateCourseProgress(r.Context(), userID, courseID)
-	if err != nil {
-		SendErrorResponse(w, "Failed to calculate progress", http.StatusInternalServerError,
-			"Error calculating course progress", err)
-		return
-	}
-
-	SendSuccessResponse(w, "Course progress calculated", progress,
-		"Course progress calculated and returned")
-}
-
-// GetModuleProgress handles GET /api/modules/{id}/progress?user_id={uuid} - shows module progress for user
-// @Summary Get module progress
-// @Description Get progress information for a specific module and user
-// @Tags progress
-// @Accept json
-// @Produce json
-// @Param id path string true "Module ID"
-// @Param user_id query string true "User ID"
-// @Success 200 {object} map[string]interface{} "Module progress information"
-// @Failure 400 {object} map[string]interface{} "Invalid module or user ID"
-// @Failure 500 {object} map[string]interface{} "Internal server error"
-// @Router /modules/{id}/progress [get]
-func (h *CourseHandler) GetModuleProgress(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Module progress requested from IP: %s", r.RemoteAddr)
-
-	// extract module ID from URL path
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 4 {
-		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
-			"Invalid URL path in module progress request", nil)
-		return
-	}
-
-	moduleIDStr := pathParts[3]
-	moduleID, err := uuid.Parse(moduleIDStr)
-	if err != nil {
-		SendErrorResponse(w, "Invalid module ID format", http.StatusBadRequest,
-			"Invalid module UUID in progress request", err)
-		return
-	}
-
-	// get user ID from query params
-	userIDStr := r.URL.Query().Get("user_id")
-	if userIDStr == "" {
-		SendErrorResponse(w, "user_id query parameter is required", http.StatusBadRequest,
-			"Missing user_id parameter in progress request", nil)
-		return
-	}
-
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		SendErrorResponse(w, "Invalid user ID format", http.StatusBadRequest,
-			"Invalid user UUID in progress request", err)
-		return
-	}
-
-	log.Printf("Calculating module progress for module %s and user %s", moduleID.String(), userID.String())
-
-	// calculate module progress
-	progress, err := h.Service.CalculateModuleProgress(r.Context(), userID, moduleID)
-	if err != nil {
-		SendErrorResponse(w, "Failed to calculate progress", http.StatusInternalServerError,
-			"Error calculating module progress", err)
-		return
-	}
-
-	SendSuccessResponse(w, "Module progress calculated", progress,
-		"Module progress calculated and returned")
-}
-
-// UpdateContentProgress handles POST /api/content/{id}/progress - updates progress for content item
-// @Summary Update content progress
-// @Description Update progress information for a specific content item
-// @Tags progress
-// @Accept json
-// @Produce json
+// ServeContentFile handles GET /api/content/{id}/file - serves the actual content file
+// @Summary Serve content file
+// @Description Serve the actual file for a content item (video, PDF, etc.)
+// @Tags content
+// @Produce octet-stream
 // @Param id path string true "Content Item ID"
-// @Param progress body object{user_id=string,progress_pct=number,last_position=number,completed=boolean} true "Progress update data"
-// @Success 200 {object} map[string]interface{} "Progress updated successfully"
-// @Failure 400 {object} map[string]interface{} "Invalid request format or missing fields"
+// @Success 200 {file} binary "Content file"
+// @Failure 400 {object} map[string]interface{} "Invalid content ID"
+// @Failure 404 {object} map[string]interface{} "File not found"
 // @Failure 500 {object} map[string]interface{} "Internal server error"
-// @Router /content/{id}/progress [post]
-func (h *CourseHandler) UpdateContentProgress(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Content progress update requested from IP: %s", r.RemoteAddr)
+// @Router /content/{id}/file [get]
+func (h *CourseHandler) ServeContentFile(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Content file requested from IP: %s", r.RemoteAddr)
 
 	// extract content item ID from URL path
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) < 4 {
 		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
-			"Invalid URL path in content progress update", nil)
+			"Invalid URL path in file serve request", nil)
 		return
 	}
 
@@ -407,151 +332,40 @@ func (h *CourseHandler) UpdateContentProgress(w http.ResponseWriter, r *http.Req
 	contentID, err := uuid.Parse(contentIDStr)
 	if err != nil {
 		SendErrorResponse(w, "Invalid content ID format", http.StatusBadRequest,
-			"Invalid content UUID in progress update", err)
+			"Invalid content UUID in file serve request", err)
 		return
 	}
 
-	// parse request body
-	type progressUpdate struct {
-		UserID       uuid.UUID `json:"user_id"`
-		ProgressPct  float32   `json:"progress_pct"`
-		LastPosition int       `json:"last_position,omitempty"`
-		Completed    bool      `json:"completed,omitempty"`
-	}
+	log.Printf("Serving file for content %s", contentID.String())
 
-	var update progressUpdate
-	if err := ValidateJSONBody(r, &update); err != nil {
-		SendErrorResponse(w, "Invalid request format: "+err.Error(), http.StatusBadRequest,
-			"Invalid JSON in progress update request", err)
-		return
-	}
-
-	// validate required fields
-	if update.UserID == uuid.Nil {
-		SendErrorResponse(w, "User ID is required", http.StatusBadRequest,
-			"Progress update attempted with missing user ID", nil)
-		return
-	}
-
-	log.Printf("Updating content progress for content %s, user %s, progress %.1f%%",
-		contentID.String(), update.UserID.String(), update.ProgressPct)
-
-	// update progress
-	err = h.Service.UpdateContentItemProgress(r.Context(), update.UserID, contentID, update.ProgressPct, update.LastPosition)
+	// get content item from database to get file path
+	contentItem, err := h.Service.DB.GetContentItem(r.Context(), contentID)
 	if err != nil {
-		SendErrorResponse(w, "Failed to update progress", http.StatusInternalServerError,
-			"Error updating content progress", err)
+		SendErrorResponse(w, "Content item not found", http.StatusNotFound,
+			"Error retrieving content item", err)
 		return
 	}
 
-	SendSuccessResponse(w, "Progress updated successfully", nil,
-		"Content progress updated successfully")
-}
+	// construct full file path
+	fullPath := filepath.Join(h.Service.Parser.BasePath, contentItem.RelativePath)
 
-// MarkContentCompleted handles POST /api/content/{id}/complete - marks content as completed
-// @Summary Mark content as completed
-// @Description Mark a specific content item as completed for a user
-// @Tags progress
-// @Accept json
-// @Produce json
-// @Param id path string true "Content Item ID"
-// @Param request body object{user_id=string} true "User ID"
-// @Success 200 {object} map[string]interface{} "Content marked as completed"
-// @Failure 400 {object} map[string]interface{} "Invalid request format or missing user ID"
-// @Failure 500 {object} map[string]interface{} "Internal server error"
-// @Router /content/{id}/complete [post]
-func (h *CourseHandler) MarkContentCompleted(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Content completion requested from IP: %s", r.RemoteAddr)
+	// Docker container path adjustment
+	if strings.HasPrefix(fullPath, "/courses/") {
+		adjustedPath := filepath.Join("../", fullPath)
+		if _, err := os.Stat(adjustedPath); err == nil {
+			fullPath = adjustedPath
+		}
+	}
 
-	// extract content item ID from URL path
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 4 {
-		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
-			"Invalid URL path in content completion", nil)
+	log.Printf("Serving file from path: %s", fullPath)
+
+	// check if file exists
+	if _, err := os.Stat(fullPath); err != nil {
+		SendErrorResponse(w, "File not found", http.StatusNotFound,
+			"Content file does not exist on disk", err)
 		return
 	}
 
-	contentIDStr := pathParts[3]
-	contentID, err := uuid.Parse(contentIDStr)
-	if err != nil {
-		SendErrorResponse(w, "Invalid content ID format", http.StatusBadRequest,
-			"Invalid content UUID in completion request", err)
-		return
-	}
-
-	// parse request body
-	type completeRequest struct {
-		UserID uuid.UUID `json:"user_id"`
-	}
-
-	var req completeRequest
-	if err := ValidateJSONBody(r, &req); err != nil {
-		SendErrorResponse(w, "Invalid request format: "+err.Error(), http.StatusBadRequest,
-			"Invalid JSON in completion request", err)
-		return
-	}
-
-	// validate required fields
-	if req.UserID == uuid.Nil {
-		SendErrorResponse(w, "User ID is required", http.StatusBadRequest,
-			"Content completion attempted with missing user ID", nil)
-		return
-	}
-
-	log.Printf("Marking content %s as completed for user %s", contentID.String(), req.UserID.String())
-
-	// mark as completed
-	err = h.Service.MarkContentItemCompleted(r.Context(), req.UserID, contentID)
-	if err != nil {
-		SendErrorResponse(w, "Failed to mark as completed", http.StatusInternalServerError,
-			"Error marking content as completed", err)
-		return
-	}
-
-	SendSuccessResponse(w, "Content marked as completed", nil,
-		"Content successfully marked as completed")
-}
-
-// GetUserProgressSummary handles GET /api/users/{id}/progress - shows overall progress summary
-// @Summary Get user progress summary
-// @Description Get overall progress summary for a user across all courses
-// @Tags progress
-// @Accept json
-// @Produce json
-// @Param id path string true "User ID"
-// @Success 200 {object} map[string]interface{} "User progress summary"
-// @Failure 400 {object} map[string]interface{} "Invalid user ID"
-// @Failure 500 {object} map[string]interface{} "Internal server error"
-// @Router /users/{id}/progress [get]
-func (h *CourseHandler) GetUserProgressSummary(w http.ResponseWriter, r *http.Request) {
-	log.Printf("User progress summary requested from IP: %s", r.RemoteAddr)
-
-	// extract user ID from URL path
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 4 {
-		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
-			"Invalid URL path in progress summary request", nil)
-		return
-	}
-
-	userIDStr := pathParts[3]
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		SendErrorResponse(w, "Invalid user ID format", http.StatusBadRequest,
-			"Invalid user UUID in progress summary request", err)
-		return
-	}
-
-	log.Printf("Getting progress summary for user %s", userID.String())
-
-	// get progress summary
-	summary, err := h.Service.GetUserProgressSummary(r.Context(), userID)
-	if err != nil {
-		SendErrorResponse(w, "Failed to get progress summary", http.StatusInternalServerError,
-			"Error getting user progress summary", err)
-		return
-	}
-
-	SendSuccessResponse(w, "Progress summary retrieved", summary,
-		"User progress summary retrieved and returned")
+	// serve the file
+	http.ServeFile(w, r, fullPath)
 }

@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react'
+import {useEffect, useState} from 'react'
 import {ApiResponse, CourseDirectory, CreateCourseInput, ScanResponse, Task} from '../types/models'
 import './CourseScanner.css'
 

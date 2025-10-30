@@ -1,4 +1,4 @@
-import React, {JSX, useEffect, useState} from 'react'
+import {JSX, useEffect, useState} from 'react'
 import {ApiResponse, Course, Profile} from '../types/models'
 import ProfileCreation from './ProfileCreation'
 import CourseScanner from './CourseScanner'

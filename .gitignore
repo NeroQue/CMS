@@ -2,6 +2,9 @@ backend/.idea/
 .idea
 .env
 
+# Tests
+*_test.go
+
 # scripts to migrate db faster using Goose
 migrate_down.sh
 migrate_up.sh

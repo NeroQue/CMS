@@ -13,20 +13,17 @@ import (
 )
 
 const createContentItem = `-- name: CreateContentItem :one
-INSERT INTO content_items (
-    id,
-    module_id,
-    title,
-    description,
-    relative_path,
-    content_type,
-    duration,
-    size,
-    "order"
-) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9
-)
-RETURNING id, module_id, title, description, relative_path, content_type, duration, size, "order", created_at, updated_at
+INSERT INTO content_items (id,
+                           module_id,
+                           title,
+                           description,
+                           relative_path,
+                           content_type,
+                           duration,
+                           size,
+                           "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, module_id, title, description, relative_path, content_type, duration, size, "order", created_at, updated_at, xp_value
 `
 
 type CreateContentItemParams struct {
@@ -66,12 +63,14 @@ func (q *Queries) CreateContentItem(ctx context.Context, arg CreateContentItemPa
 		&i.Order,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.XpValue,
 	)
 	return i, err
 }
 
 const deleteContentItem = `-- name: DeleteContentItem :exec
-DELETE FROM content_items
+DELETE
+FROM content_items
 WHERE id = $1
 `
 
@@ -81,7 +80,8 @@ func (q *Queries) DeleteContentItem(ctx context.Context, id uuid.UUID) error {
 }
 
 const getContentItem = `-- name: GetContentItem :one
-SELECT id, module_id, title, description, relative_path, content_type, duration, size, "order", created_at, updated_at FROM content_items
+SELECT id, module_id, title, description, relative_path, content_type, duration, size, "order", created_at, updated_at, xp_value
+FROM content_items
 WHERE id = $1
 `
 
@@ -100,12 +100,87 @@ func (q *Queries) GetContentItem(ctx context.Context, id uuid.UUID) (ContentItem
 		&i.Order,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.XpValue,
+	)
+	return i, err
+}
+
+const getContentItemByID = `-- name: GetContentItemByID :one
+SELECT id, module_id, title, description, relative_path, content_type, duration, size, "order", created_at, updated_at, xp_value
+FROM content_items
+WHERE id = $1
+`
+
+func (q *Queries) GetContentItemByID(ctx context.Context, id uuid.UUID) (ContentItem, error) {
+	row := q.db.QueryRowContext(ctx, getContentItemByID, id)
+	var i ContentItem
+	err := row.Scan(
+		&i.ID,
+		&i.ModuleID,
+		&i.Title,
+		&i.Description,
+		&i.RelativePath,
+		&i.ContentType,
+		&i.Duration,
+		&i.Size,
+		&i.Order,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.XpValue,
+	)
+	return i, err
+}
+
+const getContentItemWithXP = `-- name: GetContentItemWithXP :one
+SELECT ci.id, ci.module_id, ci.title, ci.description, ci.relative_path, ci.content_type, ci.duration, ci.size, ci."order", ci.created_at, ci.updated_at, ci.xp_value,
+       CASE
+           WHEN ci.xp_value IS NOT NULL THEN ci.xp_value
+           ELSE 0
+           END as calculated_xp
+FROM content_items ci
+WHERE ci.id = $1
+`
+
+type GetContentItemWithXPRow struct {
+	ID           uuid.UUID
+	ModuleID     uuid.UUID
+	Title        string
+	Description  sql.NullString
+	RelativePath string
+	ContentType  string
+	Duration     sql.NullInt32
+	Size         sql.NullInt64
+	Order        int32
+	CreatedAt    sql.NullTime
+	UpdatedAt    sql.NullTime
+	XpValue      sql.NullInt32
+	CalculatedXp int32
+}
+
+func (q *Queries) GetContentItemWithXP(ctx context.Context, id uuid.UUID) (GetContentItemWithXPRow, error) {
+	row := q.db.QueryRowContext(ctx, getContentItemWithXP, id)
+	var i GetContentItemWithXPRow
+	err := row.Scan(
+		&i.ID,
+		&i.ModuleID,
+		&i.Title,
+		&i.Description,
+		&i.RelativePath,
+		&i.ContentType,
+		&i.Duration,
+		&i.Size,
+		&i.Order,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.XpValue,
+		&i.CalculatedXp,
 	)
 	return i, err
 }
 
 const listContentItemsByModule = `-- name: ListContentItemsByModule :many
-SELECT id, module_id, title, description, relative_path, content_type, duration, size, "order", created_at, updated_at FROM content_items
+SELECT id, module_id, title, description, relative_path, content_type, duration, size, "order", created_at, updated_at, xp_value
+FROM content_items
 WHERE module_id = $1
 ORDER BY "order" ASC
 `
@@ -131,6 +206,7 @@ func (q *Queries) ListContentItemsByModule(ctx context.Context, moduleID uuid.UU
 			&i.Order,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.XpValue,
 		); err != nil {
 			return nil, err
 		}
@@ -147,15 +223,14 @@ func (q *Queries) ListContentItemsByModule(ctx context.Context, moduleID uuid.UU
 
 const updateContentItem = `-- name: UpdateContentItem :one
 UPDATE content_items
-SET
-    title = $2,
-    description = $3,
+SET title        = $2,
+    description  = $3,
     content_type = $4,
-    duration = $5,
-    "order" = $6,
-    updated_at = now()
+    duration     = $5,
+    "order"      = $6,
+    updated_at   = now()
 WHERE id = $1
-RETURNING id, module_id, title, description, relative_path, content_type, duration, size, "order", created_at, updated_at
+RETURNING id, module_id, title, description, relative_path, content_type, duration, size, "order", created_at, updated_at, xp_value
 `
 
 type UpdateContentItemParams struct {
@@ -189,6 +264,40 @@ func (q *Queries) UpdateContentItem(ctx context.Context, arg UpdateContentItemPa
 		&i.Order,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.XpValue,
+	)
+	return i, err
+}
+
+const updateContentItemXP = `-- name: UpdateContentItemXP :one
+UPDATE content_items
+SET xp_value   = $2,
+    updated_at = now()
+WHERE id = $1
+RETURNING id, module_id, title, description, relative_path, content_type, duration, size, "order", created_at, updated_at, xp_value
+`
+
+type UpdateContentItemXPParams struct {
+	ID      uuid.UUID
+	XpValue sql.NullInt32
+}
+
+func (q *Queries) UpdateContentItemXP(ctx context.Context, arg UpdateContentItemXPParams) (ContentItem, error) {
+	row := q.db.QueryRowContext(ctx, updateContentItemXP, arg.ID, arg.XpValue)
+	var i ContentItem
+	err := row.Scan(
+		&i.ID,
+		&i.ModuleID,
+		&i.Title,
+		&i.Description,
+		&i.RelativePath,
+		&i.ContentType,
+		&i.Duration,
+		&i.Size,
+		&i.Order,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.XpValue,
 	)
 	return i, err
 }

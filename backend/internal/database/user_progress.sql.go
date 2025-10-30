@@ -12,9 +12,35 @@ import (
 	"github.com/google/uuid"
 )
 
+const checkIfXPAwarded = `-- name: CheckIfXPAwarded :one
+SELECT xp_awarded, xp_amount
+FROM user_progress
+WHERE user_id = $1
+  AND content_item_id = $2
+`
+
+type CheckIfXPAwardedParams struct {
+	UserID        uuid.UUID
+	ContentItemID uuid.UUID
+}
+
+type CheckIfXPAwardedRow struct {
+	XpAwarded bool
+	XpAmount  int32
+}
+
+func (q *Queries) CheckIfXPAwarded(ctx context.Context, arg CheckIfXPAwardedParams) (CheckIfXPAwardedRow, error) {
+	row := q.db.QueryRowContext(ctx, checkIfXPAwarded, arg.UserID, arg.ContentItemID)
+	var i CheckIfXPAwardedRow
+	err := row.Scan(&i.XpAwarded, &i.XpAmount)
+	return i, err
+}
+
 const deleteUserProgress = `-- name: DeleteUserProgress :exec
-DELETE FROM user_progress
-WHERE user_id = $1 AND content_item_id = $2
+DELETE
+FROM user_progress
+WHERE user_id = $1
+  AND content_item_id = $2
 `
 
 type DeleteUserProgressParams struct {
@@ -28,14 +54,13 @@ func (q *Queries) DeleteUserProgress(ctx context.Context, arg DeleteUserProgress
 }
 
 const getCourseProgressStats = `-- name: GetCourseProgressStats :one
-SELECT
-    COUNT(DISTINCT m.id) as total_modules,
-    COUNT(DISTINCT ci.id) as total_items,
-    COUNT(DISTINCT ci.id) FILTER (WHERE up.completed = true) as completed_items,
-    MAX(up.last_accessed) as last_accessed
+SELECT COUNT(DISTINCT m.id)                                     as total_modules,
+       COUNT(DISTINCT ci.id)                                    as total_items,
+       COUNT(DISTINCT ci.id) FILTER (WHERE up.completed = true) as completed_items,
+       MAX(up.last_accessed)                                    as last_accessed
 FROM modules m
-LEFT JOIN content_items ci ON m.id = ci.module_id
-LEFT JOIN user_progress up ON ci.id = up.content_item_id AND up.user_id = $2
+         LEFT JOIN content_items ci ON m.id = ci.module_id
+         LEFT JOIN user_progress up ON ci.id = up.content_item_id AND up.user_id = $2
 WHERE m.course_id = $1
 `
 
@@ -64,12 +89,11 @@ func (q *Queries) GetCourseProgressStats(ctx context.Context, arg GetCourseProgr
 }
 
 const getModuleProgressStats = `-- name: GetModuleProgressStats :one
-SELECT
-    COUNT(*) as total_items,
-    COUNT(*) FILTER (WHERE up.completed = true) as completed_items,
-    COALESCE(AVG(up.progress_pct), 0) as avg_progress
+SELECT COUNT(*)                                    as total_items,
+       COUNT(*) FILTER (WHERE up.completed = true) as completed_items,
+       COALESCE(AVG(up.progress_pct), 0)           as avg_progress
 FROM content_items ci
-LEFT JOIN user_progress up ON ci.id = up.content_item_id AND up.user_id = $2
+         LEFT JOIN user_progress up ON ci.id = up.content_item_id AND up.user_id = $2
 WHERE ci.module_id = $1
 `
 
@@ -92,8 +116,10 @@ func (q *Queries) GetModuleProgressStats(ctx context.Context, arg GetModuleProgr
 }
 
 const getUserProgressByContentItem = `-- name: GetUserProgressByContentItem :one
-SELECT id, user_id, content_item_id, completed, progress_pct, last_position, last_accessed, created_at, updated_at FROM user_progress
-WHERE user_id = $1 AND content_item_id = $2
+SELECT id, user_id, content_item_id, completed, progress_pct, last_position, last_accessed, created_at, updated_at, xp_awarded, xp_amount
+FROM user_progress
+WHERE user_id = $1
+  AND content_item_id = $2
 `
 
 type GetUserProgressByContentItemParams struct {
@@ -114,15 +140,19 @@ func (q *Queries) GetUserProgressByContentItem(ctx context.Context, arg GetUserP
 		&i.LastAccessed,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.XpAwarded,
+		&i.XpAmount,
 	)
 	return i, err
 }
 
 const listUserProgressByCourse = `-- name: ListUserProgressByCourse :many
-SELECT up.id, up.user_id, up.content_item_id, up.completed, up.progress_pct, up.last_position, up.last_accessed, up.created_at, up.updated_at FROM user_progress up
-JOIN content_items ci ON up.content_item_id = ci.id
-JOIN modules m ON ci.module_id = m.id
-WHERE m.course_id = $1 AND up.user_id = $2
+SELECT up.id, up.user_id, up.content_item_id, up.completed, up.progress_pct, up.last_position, up.last_accessed, up.created_at, up.updated_at, up.xp_awarded, up.xp_amount
+FROM user_progress up
+         JOIN content_items ci ON up.content_item_id = ci.id
+         JOIN modules m ON ci.module_id = m.id
+WHERE m.course_id = $1
+  AND up.user_id = $2
 ORDER BY m."order", ci."order"
 `
 
@@ -150,6 +180,8 @@ func (q *Queries) ListUserProgressByCourse(ctx context.Context, arg ListUserProg
 			&i.LastAccessed,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.XpAwarded,
+			&i.XpAmount,
 		); err != nil {
 			return nil, err
 		}
@@ -165,19 +197,18 @@ func (q *Queries) ListUserProgressByCourse(ctx context.Context, arg ListUserProg
 }
 
 const upsertUserProgress = `-- name: UpsertUserProgress :one
-INSERT INTO user_progress (
-    id, user_id, content_item_id, completed, progress_pct, last_position, last_accessed, created_at, updated_at
-) VALUES (
-    gen_random_uuid(), $1, $2, $3, $4, $5, $6, now(), now()
-)
+INSERT INTO user_progress (id, user_id, content_item_id, completed, progress_pct, last_position, last_accessed,
+                           xp_awarded, xp_amount, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, now(), now())
 ON CONFLICT (user_id, content_item_id)
-DO UPDATE SET
-    completed = EXCLUDED.completed,
-    progress_pct = EXCLUDED.progress_pct,
-    last_position = EXCLUDED.last_position,
-    last_accessed = EXCLUDED.last_accessed,
-    updated_at = now()
-RETURNING id, user_id, content_item_id, completed, progress_pct, last_position, last_accessed, created_at, updated_at
+    DO UPDATE SET completed     = EXCLUDED.completed,
+                  progress_pct  = EXCLUDED.progress_pct,
+                  last_position = EXCLUDED.last_position,
+                  last_accessed = EXCLUDED.last_accessed,
+                  xp_awarded    = EXCLUDED.xp_awarded,
+                  xp_amount     = EXCLUDED.xp_amount,
+                  updated_at    = now()
+RETURNING id, user_id, content_item_id, completed, progress_pct, last_position, last_accessed, created_at, updated_at, xp_awarded, xp_amount
 `
 
 type UpsertUserProgressParams struct {
@@ -187,6 +218,8 @@ type UpsertUserProgressParams struct {
 	ProgressPct   float32
 	LastPosition  sql.NullInt32
 	LastAccessed  sql.NullTime
+	XpAwarded     bool
+	XpAmount      int32
 }
 
 func (q *Queries) UpsertUserProgress(ctx context.Context, arg UpsertUserProgressParams) (UserProgress, error) {
@@ -197,6 +230,8 @@ func (q *Queries) UpsertUserProgress(ctx context.Context, arg UpsertUserProgress
 		arg.ProgressPct,
 		arg.LastPosition,
 		arg.LastAccessed,
+		arg.XpAwarded,
+		arg.XpAmount,
 	)
 	var i UserProgress
 	err := row.Scan(
@@ -209,6 +244,8 @@ func (q *Queries) UpsertUserProgress(ctx context.Context, arg UpsertUserProgress
 		&i.LastAccessed,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.XpAwarded,
+		&i.XpAmount,
 	)
 	return i, err
 }

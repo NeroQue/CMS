@@ -22,6 +22,7 @@ type ContentItem struct {
 	Order        int32
 	CreatedAt    sql.NullTime
 	UpdatedAt    sql.NullTime
+	XpValue      sql.NullInt32
 }
 
 type Course struct {
@@ -46,10 +47,14 @@ type Module struct {
 }
 
 type Profile struct {
-	ID        uuid.UUID
-	Name      string
-	CreatedAt sql.NullTime
-	UpdatedAt sql.NullTime
+	ID             uuid.UUID
+	Name           string
+	CreatedAt      sql.NullTime
+	UpdatedAt      sql.NullTime
+	Experience     int32
+	Gems           int32
+	Level          int32
+	LastActiveDate sql.NullTime
 }
 
 type Session struct {
@@ -69,4 +74,6 @@ type UserProgress struct {
 	LastAccessed  sql.NullTime
 	CreatedAt     sql.NullTime
 	UpdatedAt     sql.NullTime
+	XpAwarded     bool
+	XpAmount      int32
 }

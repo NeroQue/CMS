@@ -7,19 +7,48 @@ package database
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 )
 
+const addExperienceToProfile = `-- name: AddExperienceToProfile :one
+UPDATE profiles
+SET experience = experience + $2,
+    level      = (experience + $2) / 100 + 1,
+    updated_at = now()
+WHERE id = $1
+RETURNING id, name, created_at, updated_at, experience, gems, level, last_active_date
+`
+
+type AddExperienceToProfileParams struct {
+	ID         uuid.UUID
+	Experience int32
+}
+
+func (q *Queries) AddExperienceToProfile(ctx context.Context, arg AddExperienceToProfileParams) (Profile, error) {
+	row := q.db.QueryRowContext(ctx, addExperienceToProfile, arg.ID, arg.Experience)
+	var i Profile
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Experience,
+		&i.Gems,
+		&i.Level,
+		&i.LastActiveDate,
+	)
+	return i, err
+}
+
 const createProfile = `-- name: CreateProfile :one
 INSERT INTO profiles (id, created_at, updated_at, name)
-VALUES (
-    $1,
-    now(),
-    now(),
-    $2
-)
-RETURNING id, name, created_at, updated_at
+VALUES ($1,
+        now(),
+        now(),
+        $2)
+RETURNING id, name, created_at, updated_at, experience, gems, level, last_active_date
 `
 
 type CreateProfileParams struct {
@@ -35,6 +64,10 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Experience,
+		&i.Gems,
+		&i.Level,
+		&i.LastActiveDate,
 	)
 	return i, err
 }
@@ -51,7 +84,8 @@ func (q *Queries) DeleteProfile(ctx context.Context, id uuid.UUID) error {
 }
 
 const getAllProfiles = `-- name: GetAllProfiles :many
-SELECT id, name, created_at, updated_at FROM profiles
+SELECT id, name, created_at, updated_at, experience, gems, level, last_active_date
+FROM profiles
 `
 
 func (q *Queries) GetAllProfiles(ctx context.Context) ([]Profile, error) {
@@ -68,6 +102,10 @@ func (q *Queries) GetAllProfiles(ctx context.Context) ([]Profile, error) {
 			&i.Name,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Experience,
+			&i.Gems,
+			&i.Level,
+			&i.LastActiveDate,
 		); err != nil {
 			return nil, err
 		}
@@ -83,7 +121,7 @@ func (q *Queries) GetAllProfiles(ctx context.Context) ([]Profile, error) {
 }
 
 const getProfileById = `-- name: GetProfileById :one
-SELECT id, name, created_at, updated_at
+SELECT id, name, created_at, updated_at, experience, gems, level, last_active_date
 FROM profiles
 WHERE id = $1
 `
@@ -96,12 +134,16 @@ func (q *Queries) GetProfileById(ctx context.Context, id uuid.UUID) (Profile, er
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Experience,
+		&i.Gems,
+		&i.Level,
+		&i.LastActiveDate,
 	)
 	return i, err
 }
 
 const getProfileByName = `-- name: GetProfileByName :one
-SELECT id, name, created_at, updated_at
+SELECT id, name, created_at, updated_at, experience, gems, level, last_active_date
 FROM profiles
 WHERE name = $1
 `
@@ -114,12 +156,55 @@ func (q *Queries) GetProfileByName(ctx context.Context, name string) (Profile, e
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Experience,
+		&i.Gems,
+		&i.Level,
+		&i.LastActiveDate,
+	)
+	return i, err
+}
+
+const getProfileWithStats = `-- name: GetProfileWithStats :one
+SELECT p.id, p.name, p.created_at, p.updated_at, p.experience, p.gems, p.level, p.last_active_date,
+       (p.experience % 100)         as xp_in_level,
+       (100 - (p.experience % 100)) as xp_to_next_level
+FROM profiles p
+WHERE p.id = $1
+`
+
+type GetProfileWithStatsRow struct {
+	ID             uuid.UUID
+	Name           string
+	CreatedAt      sql.NullTime
+	UpdatedAt      sql.NullTime
+	Experience     int32
+	Gems           int32
+	Level          int32
+	LastActiveDate sql.NullTime
+	XpInLevel      int32
+	XpToNextLevel  int32
+}
+
+func (q *Queries) GetProfileWithStats(ctx context.Context, id uuid.UUID) (GetProfileWithStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, getProfileWithStats, id)
+	var i GetProfileWithStatsRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Experience,
+		&i.Gems,
+		&i.Level,
+		&i.LastActiveDate,
+		&i.XpInLevel,
+		&i.XpToNextLevel,
 	)
 	return i, err
 }
 
 const getProfilesByNamePattern = `-- name: GetProfilesByNamePattern :many
-SELECT id, name, created_at, updated_at
+SELECT id, name, created_at, updated_at, experience, gems, level, last_active_date
 FROM profiles
 WHERE name LIKE $1
 `
@@ -138,6 +223,10 @@ func (q *Queries) GetProfilesByNamePattern(ctx context.Context, name string) ([]
 			&i.Name,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Experience,
+			&i.Gems,
+			&i.Level,
+			&i.LastActiveDate,
 		); err != nil {
 			return nil, err
 		}
@@ -169,7 +258,7 @@ UPDATE profiles
 SET name       = $2,
     updated_at = now()
 WHERE id = $1
-RETURNING id, name, created_at, updated_at
+RETURNING id, name, created_at, updated_at, experience, gems, level, last_active_date
 `
 
 type UpdateProfileByIDParams struct {
@@ -185,6 +274,51 @@ func (q *Queries) UpdateProfileByID(ctx context.Context, arg UpdateProfileByIDPa
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Experience,
+		&i.Gems,
+		&i.Level,
+		&i.LastActiveDate,
+	)
+	return i, err
+}
+
+const updateProfileGamification = `-- name: UpdateProfileGamification :one
+UPDATE profiles
+SET experience       = $2,
+    gems             = $3,
+    level            = $4,
+    last_active_date = $5,
+    updated_at       = now()
+WHERE id = $1
+RETURNING id, name, created_at, updated_at, experience, gems, level, last_active_date
+`
+
+type UpdateProfileGamificationParams struct {
+	ID             uuid.UUID
+	Experience     int32
+	Gems           int32
+	Level          int32
+	LastActiveDate sql.NullTime
+}
+
+func (q *Queries) UpdateProfileGamification(ctx context.Context, arg UpdateProfileGamificationParams) (Profile, error) {
+	row := q.db.QueryRowContext(ctx, updateProfileGamification,
+		arg.ID,
+		arg.Experience,
+		arg.Gems,
+		arg.Level,
+		arg.LastActiveDate,
+	)
+	var i Profile
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Experience,
+		&i.Gems,
+		&i.Level,
+		&i.LastActiveDate,
 	)
 	return i, err
 }

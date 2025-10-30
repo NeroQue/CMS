@@ -3,7 +3,7 @@ import HomePage from './components/HomePage'
 import './App.css'
 
 function App(): JSX.Element {
-  return <HomePage />
+    return <HomePage/>
 }
 
 export default App

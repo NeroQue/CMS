@@ -21,6 +21,8 @@ type ContentItem struct {
 	Size     int64 `json:"size,omitempty"`     // file size in bytes
 	Order    int   `json:"order,omitempty"`    // position in module
 
+	XPValue *int `json:"xp_value,omitempty"` // manual XP override (nil = auto-calculate)
+
 	// timestamps
 	CreatedAt sql.NullTime `json:"created_at,omitempty"`
 	UpdatedAt sql.NullTime `json:"updated_at,omitempty"`

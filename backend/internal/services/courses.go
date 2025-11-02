@@ -278,6 +278,8 @@ func (s *CourseService) TrackUserProgress(ctx context.Context, userID, contentIt
 		ProgressPct:   progressPct,
 		LastPosition:  sql.NullInt32{Int32: int32(lastPosition), Valid: lastPosition > 0},
 		LastAccessed:  sql.NullTime{Time: time.Now(), Valid: true},
+		XpAwarded:     false,
+		XpAmount:      0,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error tracking user progress: %w", err)
@@ -825,7 +827,60 @@ func (s *CourseService) UpdateContentItemProgress(ctx context.Context, userID, c
 		ProgressPct:   progressPct,
 		LastPosition:  sql.NullInt32{Int32: int32(lastPosition), Valid: lastPosition > 0},
 		LastAccessed:  sql.NullTime{Time: time.Now(), Valid: true},
+		XpAwarded:     false,
+		XpAmount:      0,
 	})
 
 	return err
+}
+
+// UpdateProgressWithXP updates progress and awards XP if content is completed
+// This integrates with the gamification service to award XP when content is marked as complete
+func (s *CourseService) UpdateProgressWithXP(ctx context.Context, userID, contentItemID uuid.UUID, completed bool, progressPct float32, lastPosition int, gamificationSvc *GamificationService) (*database.UserProgress, *XPAwardResult, error) {
+	// Update progress first (without XP tracking yet)
+	progress, err := s.DB.UpsertUserProgress(ctx, database.UpsertUserProgressParams{
+		UserID:        userID,
+		ContentItemID: contentItemID,
+		Completed:     completed,
+		ProgressPct:   progressPct,
+		LastPosition:  sql.NullInt32{Int32: int32(lastPosition), Valid: lastPosition > 0},
+		LastAccessed:  sql.NullTime{Time: time.Now(), Valid: true},
+		XpAwarded:     false,
+		XpAmount:      0,
+	})
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to update progress: %w", err)
+	}
+
+	var xpResult *XPAwardResult
+
+	// Award XP if content is completed and gamification service is provided
+	if completed && gamificationSvc != nil {
+		xpResult, err = gamificationSvc.AwardXPForContent(ctx, userID, contentItemID)
+		if err != nil {
+			// Log error but don't fail the progress update
+			log.Printf("Failed to award XP: %v", err)
+			xpResult = &XPAwardResult{} // Return empty result
+		}
+
+		// Update progress record with XP info if XP was actually awarded
+		if xpResult != nil && !xpResult.AlreadyAwarded && xpResult.XPAwarded > 0 {
+			progress, err = s.DB.UpsertUserProgress(ctx, database.UpsertUserProgressParams{
+				UserID:        userID,
+				ContentItemID: contentItemID,
+				Completed:     completed,
+				ProgressPct:   progressPct,
+				LastPosition:  sql.NullInt32{Int32: int32(lastPosition), Valid: lastPosition > 0},
+				LastAccessed:  sql.NullTime{Time: time.Now(), Valid: true},
+				XpAwarded:     true,
+				XpAmount:      int32(xpResult.XPAwarded),
+			})
+			if err != nil {
+				log.Printf("Failed to update progress with XP info: %v", err)
+			}
+		}
+	}
+
+	return &progress, xpResult, nil
 }

@@ -36,10 +36,14 @@ func (s *ProfileService) GetAllProfiles(ctx context.Context) ([]models.Profile, 
 	modelProfiles := make([]models.Profile, len(profiles))
 	for i, p := range profiles {
 		modelProfiles[i] = models.Profile{
-			ID:        p.ID,
-			Name:      p.Name,
-			CreatedAt: p.CreatedAt,
-			UpdatedAt: p.UpdatedAt,
+			ID:             p.ID,
+			Name:           p.Name,
+			Experience:     int(p.Experience),
+			Gems:           int(p.Gems),
+			Level:          int(p.Level),
+			LastActiveDate: p.LastActiveDate,
+			CreatedAt:      p.CreatedAt,
+			UpdatedAt:      p.UpdatedAt,
 		}
 	}
 
@@ -70,10 +74,14 @@ func (s *ProfileService) CreateProfile(ctx context.Context, profile models.Profi
 
 	// convert back to app model
 	return models.Profile{
-		ID:        createdProfile.ID,
-		Name:      createdProfile.Name,
-		CreatedAt: createdProfile.CreatedAt,
-		UpdatedAt: createdProfile.UpdatedAt,
+		ID:             createdProfile.ID,
+		Name:           createdProfile.Name,
+		Experience:     int(createdProfile.Experience),
+		Gems:           int(createdProfile.Gems),
+		Level:          int(createdProfile.Level),
+		LastActiveDate: createdProfile.LastActiveDate,
+		CreatedAt:      createdProfile.CreatedAt,
+		UpdatedAt:      createdProfile.UpdatedAt,
 	}, nil
 }
 
@@ -100,10 +108,14 @@ func (s *ProfileService) UpdateProfileName(ctx context.Context, userID uuid.UUID
 
 	// convert back to app model
 	return models.Profile{
-		ID:        updatedProfile.ID,
-		Name:      updatedProfile.Name,
-		CreatedAt: updatedProfile.CreatedAt,
-		UpdatedAt: updatedProfile.UpdatedAt,
+		ID:             updatedProfile.ID,
+		Name:           updatedProfile.Name,
+		Experience:     int(updatedProfile.Experience),
+		Gems:           int(updatedProfile.Gems),
+		Level:          int(updatedProfile.Level),
+		LastActiveDate: updatedProfile.LastActiveDate,
+		CreatedAt:      updatedProfile.CreatedAt,
+		UpdatedAt:      updatedProfile.UpdatedAt,
 	}, nil
 }
 
@@ -118,10 +130,14 @@ func (s *ProfileService) GetProfileByID(ctx context.Context, id uuid.UUID) (mode
 
 	// convert back to app model
 	return models.Profile{
-		ID:        dbProfile.ID,
-		Name:      dbProfile.Name,
-		CreatedAt: dbProfile.CreatedAt,
-		UpdatedAt: dbProfile.UpdatedAt,
+		ID:             dbProfile.ID,
+		Name:           dbProfile.Name,
+		Experience:     int(dbProfile.Experience),
+		Gems:           int(dbProfile.Gems),
+		Level:          int(dbProfile.Level),
+		LastActiveDate: dbProfile.LastActiveDate,
+		CreatedAt:      dbProfile.CreatedAt,
+		UpdatedAt:      dbProfile.UpdatedAt,
 	}, nil
 }
 

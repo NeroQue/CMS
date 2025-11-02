@@ -17,6 +17,7 @@ type Profile struct {
 	// gamification stuff
 	Experience int `json:"experience"` // XP points
 	Gems       int `json:"gems"`       // special currency
+	Level      int `json:"level"`      // user level (calculated from XP)
 	Streak     int `json:"streak"`     // consecutive active days
 
 	LastActiveDate sql.NullTime `json:"last_active_date,omitempty"` // for streak tracking

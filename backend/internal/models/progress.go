@@ -20,6 +20,10 @@ type UserProgress struct {
 	LastPosition int          `json:"last_position,omitempty"` // seconds (for videos)
 	LastAccessed sql.NullTime `json:"last_accessed,omitempty"` // when they last viewed it
 
+	// XP tracking
+	XPAwarded bool `json:"xp_awarded"` // flag to prevent double XP awards
+	XPAmount  int  `json:"xp_amount"`  // amount of XP that was awarded
+
 	// timestamps
 	CreatedAt sql.NullTime `json:"created_at,omitempty"`
 	UpdatedAt sql.NullTime `json:"updated_at,omitempty"`
@@ -68,4 +72,15 @@ type ProgressSummary struct {
 	InProgressCourses int       `json:"in_progress_courses"`
 	TotalTimeSpent    int       `json:"total_time_spent"` // minutes
 	StreakDays        int       `json:"streak_days"`
+}
+
+// XPAwardResult contains information about XP awarded for content completion
+type XPAwardResult struct {
+	XPAwarded      int  `json:"xp_awarded"`
+	GemsAwarded    int  `json:"gems_awarded"`
+	LeveledUp      bool `json:"leveled_up"`
+	NewLevel       int  `json:"new_level"`
+	OldLevel       int  `json:"old_level"`
+	TotalXP        int  `json:"total_xp"`
+	AlreadyAwarded bool `json:"already_awarded"` // True if XP was previously awarded
 }

@@ -129,6 +129,13 @@ export interface ModuleProgress {
     last_accessed_at?: string
 }
 
+// Progress for a single content item
+export interface ContentItemProgress {
+    content_item_id: string
+    user_id: string
+    completed: boolean
+}
+
 // Overall course progress
 export interface CourseProgress {
     course_id: string
@@ -141,6 +148,7 @@ export interface CourseProgress {
     is_completed: boolean
     last_accessed_at?: string
     modules?: ModuleProgress[]
+    items?: ContentItemProgress[]
 }
 
 // Request to save video progress

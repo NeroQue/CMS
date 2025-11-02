@@ -40,7 +40,7 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
 
             setCourse(courseData.data)
 
-            // Fetch progress
+            // Fetch course progress with batch optimization
             const progressResponse = await fetch(
                 `${baseURL}/api/courses/${courseId}/progress?user_id=${userId}`
             )
@@ -48,29 +48,18 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
 
             if (progressData.success && progressData.data) {
                 setProgress(progressData.data)
-            }
-            // Fetch individual content item progress
-            const completionMap = new Map<string, boolean>()
-            if (courseData.data.modules) {
-                for (const module of courseData.data.modules) {
-                    if (module.content_items) {
-                        for (const content of module.content_items) {
-                            try {
-                                const contentProgressResponse = await fetch(
-                                    `${baseURL}/api/content/${content.id}/progress?user_id=${userId}`
-                                )
-                                const contentProgressData: ApiResponse<any> = await contentProgressResponse.json()
-                                if (contentProgressData.success && contentProgressData.data) {
-                                    completionMap.set(content.id, contentProgressData.data.Completed)
-                                }
-                            } catch (err) {
-                                console.error(`Error fetching progress for content ${content.id}:`, err)
-                            }
-                        }
-                    }
+
+                // Build fast lookup map from batch progress data
+                const completionMap = new Map<string, boolean>()
+
+                if (progressData.data.items) {
+                    progressData.data.items.forEach(item => {
+                        completionMap.set(item.content_item_id, item.completed)
+                    })
                 }
+
+                setContentProgressMap(completionMap)
             }
-            setContentProgressMap(completionMap)
 
             setLoading(false)
         } catch (err) {

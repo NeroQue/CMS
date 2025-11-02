@@ -57,3 +57,16 @@ FROM user_progress
 WHERE user_id = $1
   AND content_item_id = $2;
 
+-- name: GetUserProgressByModule :many
+SELECT up.*
+FROM user_progress up
+         JOIN content_items ci ON up.content_item_id = ci.id
+WHERE ci.module_id = $1
+  AND up.user_id = $2;
+
+-- name: BatchGetUserProgress :many
+SELECT up.*
+FROM user_progress up
+WHERE up.user_id = $1
+  AND up.content_item_id = ANY ($2::uuid[]);
+

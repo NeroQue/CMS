@@ -38,6 +38,13 @@ type CreateProgressInput struct {
 	LastPosition  int       `json:"last_position,omitempty"`
 }
 
+// ContentItemProgress represents calculated progress for a content item
+type ContentItemProgress struct {
+	ContentItemID uuid.UUID `json:"content_item_id"`
+	UserID        uuid.UUID `json:"user_id"`
+	Completed     bool      `json:"completed"`
+}
+
 // ModuleProgress represents calculated progress for a module
 type ModuleProgress struct {
 	ModuleID       uuid.UUID  `json:"module_id"`
@@ -51,17 +58,18 @@ type ModuleProgress struct {
 
 // CourseProgress represents calculated progress for an entire course
 type CourseProgress struct {
-	CourseID          uuid.UUID         `json:"course_id"`
-	UserID            uuid.UUID         `json:"user_id"`
-	CompletedModules  int               `json:"completed_modules"`
-	TotalModules      int               `json:"total_modules"`
-	CompletedItems    int               `json:"completed_items"`
-	TotalItems        int               `json:"total_items"`
-	CompletionPct     float32           `json:"completion_pct"`
-	LastAccessedAt    *time.Time        `json:"last_accessed_at,omitempty"`
-	IsCompleted       bool              `json:"is_completed"`                  // true when all modules done
-	EstimatedTimeLeft int               `json:"estimated_time_left,omitempty"` // minutes
-	Modules           []*ModuleProgress `json:"modules,omitempty"`             // progress for each module
+	CourseID          uuid.UUID             `json:"course_id"`
+	UserID            uuid.UUID             `json:"user_id"`
+	CompletedModules  int                   `json:"completed_modules"`
+	TotalModules      int                   `json:"total_modules"`
+	CompletedItems    int                   `json:"completed_items"`
+	TotalItems        int                   `json:"total_items"`
+	CompletionPct     float32               `json:"completion_pct"`
+	LastAccessedAt    *time.Time            `json:"last_accessed_at,omitempty"`
+	IsCompleted       bool                  `json:"is_completed"`                  // true when all modules done
+	EstimatedTimeLeft int                   `json:"estimated_time_left,omitempty"` // minutes
+	Modules           []*ModuleProgress     `json:"modules,omitempty"`             // progress for each module
+	Items             []ContentItemProgress `json:"items,omitempty"`               // individual content item progress
 }
 
 // ProgressSummary gives overall user progress across all courses

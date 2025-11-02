@@ -10,7 +10,55 @@ import (
 	"database/sql"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
+
+const batchGetUserProgress = `-- name: BatchGetUserProgress :many
+SELECT up.id, up.user_id, up.content_item_id, up.completed, up.progress_pct, up.last_position, up.last_accessed, up.created_at, up.updated_at, up.xp_awarded, up.xp_amount
+FROM user_progress up
+WHERE up.user_id = $1
+  AND up.content_item_id = ANY ($2::uuid[])
+`
+
+type BatchGetUserProgressParams struct {
+	UserID  uuid.UUID
+	Column2 []uuid.UUID
+}
+
+func (q *Queries) BatchGetUserProgress(ctx context.Context, arg BatchGetUserProgressParams) ([]UserProgress, error) {
+	rows, err := q.db.QueryContext(ctx, batchGetUserProgress, arg.UserID, pq.Array(arg.Column2))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UserProgress
+	for rows.Next() {
+		var i UserProgress
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ContentItemID,
+			&i.Completed,
+			&i.ProgressPct,
+			&i.LastPosition,
+			&i.LastAccessed,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.XpAwarded,
+			&i.XpAmount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
 
 const checkIfXPAwarded = `-- name: CheckIfXPAwarded :one
 SELECT xp_awarded, xp_amount
@@ -144,6 +192,54 @@ func (q *Queries) GetUserProgressByContentItem(ctx context.Context, arg GetUserP
 		&i.XpAmount,
 	)
 	return i, err
+}
+
+const getUserProgressByModule = `-- name: GetUserProgressByModule :many
+SELECT up.id, up.user_id, up.content_item_id, up.completed, up.progress_pct, up.last_position, up.last_accessed, up.created_at, up.updated_at, up.xp_awarded, up.xp_amount
+FROM user_progress up
+         JOIN content_items ci ON up.content_item_id = ci.id
+WHERE ci.module_id = $1
+  AND up.user_id = $2
+`
+
+type GetUserProgressByModuleParams struct {
+	ModuleID uuid.UUID
+	UserID   uuid.UUID
+}
+
+func (q *Queries) GetUserProgressByModule(ctx context.Context, arg GetUserProgressByModuleParams) ([]UserProgress, error) {
+	rows, err := q.db.QueryContext(ctx, getUserProgressByModule, arg.ModuleID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UserProgress
+	for rows.Next() {
+		var i UserProgress
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ContentItemID,
+			&i.Completed,
+			&i.ProgressPct,
+			&i.LastPosition,
+			&i.LastAccessed,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.XpAwarded,
+			&i.XpAmount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listUserProgressByCourse = `-- name: ListUserProgressByCourse :many

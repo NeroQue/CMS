@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/NeroQue/course-management-backend/internal/models"
+	"github.com/NeroQue/course-management-backend/pkg/gamification"
+	"github.com/NeroQue/course-management-backend/pkg/util"
 	"github.com/google/uuid"
 )
 
@@ -258,6 +260,22 @@ func (p *CourseParser) scanModuleForContentRecursive(modulePath, basePath string
 				ContentType:  contentType,
 				Order:        i, // use file order in directory
 			}
+
+			duration := 0
+			if util.IsVideoFile(entry.Name()) {
+				extractedDuration, err := util.ExtractVideoDuration(entryPath)
+				if err != nil {
+					log.Printf("Could not extract duration for %s: %v", contentItem.Title, err)
+					duration = 0
+				} else {
+					duration = extractedDuration
+					contentItem.Duration = extractedDuration
+				}
+			}
+
+			calculatedXP := gamification.CalculateXPForContent(contentItem.ContentType, duration, info.Size())
+			contentItem.XPValue = &calculatedXP
+			log.Printf("Calculated XP for '%s' (type: %s): %d XP", contentItem.Title, contentItem.ContentType, *contentItem.XPValue)
 
 			contentItems = append(contentItems, contentItem)
 		}

@@ -21,8 +21,9 @@ INSERT INTO content_items (id,
                            content_type,
                            duration,
                            size,
-                           "order")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                           "order",
+                           xp_value)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING id, module_id, title, description, relative_path, content_type, duration, size, "order", created_at, updated_at, xp_value
 `
 
@@ -36,6 +37,7 @@ type CreateContentItemParams struct {
 	Duration     sql.NullInt32
 	Size         sql.NullInt64
 	Order        int32
+	XpValue      sql.NullInt32
 }
 
 func (q *Queries) CreateContentItem(ctx context.Context, arg CreateContentItemParams) (ContentItem, error) {
@@ -49,6 +51,7 @@ func (q *Queries) CreateContentItem(ctx context.Context, arg CreateContentItemPa
 		arg.Duration,
 		arg.Size,
 		arg.Order,
+		arg.XpValue,
 	)
 	var i ContentItem
 	err := row.Scan(

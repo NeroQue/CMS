@@ -388,6 +388,11 @@ func (s *CourseService) CreateCourse(ctx context.Context, course *models.Course)
 			item.ModuleID = module.ID
 			item.Order = j
 
+			xpValue := sql.NullInt32{Valid: false}
+			if item.XPValue != nil && *item.XPValue > 0 {
+				xpValue = sql.NullInt32{Int32: int32(*item.XPValue), Valid: true}
+			}
+
 			_, err = s.DB.CreateContentItem(ctx, database.CreateContentItemParams{
 				ID:           item.ID,
 				ModuleID:     item.ModuleID,
@@ -398,6 +403,7 @@ func (s *CourseService) CreateCourse(ctx context.Context, course *models.Course)
 				Duration:     sql.NullInt32{Int32: int32(item.Duration), Valid: item.Duration > 0},
 				Size:         sql.NullInt64{Int64: item.Size, Valid: item.Size > 0},
 				Order:        int32(item.Order),
+				XpValue:      xpValue,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to create content item: %w", err)
@@ -693,40 +699,58 @@ func (s *CourseService) CalculateModuleProgress(ctx context.Context, userID, mod
 
 // CalculateCourseProgress computes progress for an entire course
 func (s *CourseService) CalculateCourseProgress(ctx context.Context, userID, courseID uuid.UUID) (*models.CourseProgress, error) {
-	// get all modules in this course
+	// Get all modules for this course
 	modules, err := s.GetModulesByCourse(ctx, courseID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get modules: %w", err)
 	}
 
+	// Handle empty course
 	if len(modules) == 0 {
 		return &models.CourseProgress{
-			CourseID:         courseID,
-			UserID:           userID,
-			CompletedModules: 0,
-			TotalModules:     0,
-			CompletedItems:   0,
-			TotalItems:       0,
-			CompletionPct:    0,
-			IsCompleted:      true, // empty course is considered complete
+			CourseID:      courseID,
+			UserID:        userID,
+			CompletionPct: 0,
+			IsCompleted:   true,
 		}, nil
 	}
 
-	// calculate progress for each module
-	completedModules := 0
-	totalCompletedItems := 0
-	totalItems := 0
-	var lastAccessed *time.Time
-	var moduleProgresses []*models.ModuleProgress
+	// Fetch ALL progress items in one efficient query (instead of 100+ queries!)
+	dbProgress, err := s.DB.ListUserProgressByCourse(ctx, database.ListUserProgressByCourseParams{
+		CourseID: courseID,
+		UserID:   userID,
+	})
+	if err != nil {
+		log.Printf("Warning: Could not fetch progress: %v", err)
+		dbProgress = []database.UserProgress{}
+	}
+
+	// Convert database progress to clean API response model
+	progressItems := make([]models.ContentItemProgress, 0, len(dbProgress))
+	for _, p := range dbProgress {
+		progressItems = append(progressItems, models.ContentItemProgress{
+			ContentItemID: p.ContentItemID,
+			UserID:        p.UserID,
+			Completed:     p.Completed,
+		})
+	}
+
+	// Calculate aggregate statistics
+	var (
+		completedModules    = 0
+		totalCompletedItems = 0
+		totalItems          = 0
+		lastAccessed        *time.Time
+		moduleProgresses    = make([]*models.ModuleProgress, 0, len(modules))
+	)
 
 	for _, module := range modules {
 		moduleProgress, err := s.CalculateModuleProgress(ctx, userID, module.ID)
 		if err != nil {
-			log.Printf("Error calculating module progress for %s: %v", module.ID, err)
+			log.Printf("Warning: Could not calculate module progress for %s: %v", module.ID, err)
 			continue
 		}
 
-		// add to list of module progresses
 		moduleProgresses = append(moduleProgresses, moduleProgress)
 
 		if moduleProgress.IsCompleted {
@@ -736,7 +760,7 @@ func (s *CourseService) CalculateCourseProgress(ctx context.Context, userID, cou
 		totalCompletedItems += moduleProgress.CompletedItems
 		totalItems += moduleProgress.TotalItems
 
-		// track most recent access time
+		// Track most recent access
 		if moduleProgress.LastAccessedAt != nil {
 			if lastAccessed == nil || moduleProgress.LastAccessedAt.After(*lastAccessed) {
 				lastAccessed = moduleProgress.LastAccessedAt
@@ -744,12 +768,11 @@ func (s *CourseService) CalculateCourseProgress(ctx context.Context, userID, cou
 		}
 	}
 
-	var completionPct float32 = 0
+	// Calculate completion percentage
+	completionPct := float32(0)
 	if totalItems > 0 {
 		completionPct = float32(totalCompletedItems) / float32(totalItems) * 100
 	}
-
-	isCompleted := completedModules == len(modules)
 
 	return &models.CourseProgress{
 		CourseID:         courseID,
@@ -760,8 +783,9 @@ func (s *CourseService) CalculateCourseProgress(ctx context.Context, userID, cou
 		TotalItems:       totalItems,
 		CompletionPct:    completionPct,
 		LastAccessedAt:   lastAccessed,
-		IsCompleted:      isCompleted,
+		IsCompleted:      completedModules == len(modules),
 		Modules:          moduleProgresses,
+		Items:            progressItems,
 	}, nil
 }
 
@@ -802,18 +826,58 @@ func (s *CourseService) GetUserProgressSummary(ctx context.Context, userID uuid.
 	}, nil
 }
 
-// MarkContentItemCompleted marks a content item as completed for a user
+// MarkContentItemCompleted marks a content item as completed for a user and awards XP
 func (s *CourseService) MarkContentItemCompleted(ctx context.Context, userID, contentItemID uuid.UUID) error {
-	// create or update progress record
-	_, err := s.DB.UpsertUserProgress(ctx, database.UpsertUserProgressParams{
+	// First, mark the content as completed
+	progress, err := s.DB.UpsertUserProgress(ctx, database.UpsertUserProgressParams{
 		UserID:        userID,
 		ContentItemID: contentItemID,
 		Completed:     true,
 		ProgressPct:   100.0,
 		LastAccessed:  sql.NullTime{Time: time.Now(), Valid: true},
+		XpAwarded:     false, // Will be updated if XP is awarded
+		XpAmount:      0,
 	})
+	if err != nil {
+		return fmt.Errorf("failed to mark content completed: %w", err)
+	}
 
-	return err
+	// Award XP using gamification service
+	gamificationSvc := NewGamificationService(s.DB)
+	xpResult, err := gamificationSvc.AwardXPForContent(ctx, userID, contentItemID)
+	if err != nil {
+		log.Printf("Warning: Failed to award XP for content %s: %v", contentItemID, err)
+		return nil // Don't fail the completion if XP award fails
+	}
+
+	// Update progress record with XP information if XP was awarded
+	if xpResult != nil && !xpResult.AlreadyAwarded && xpResult.XPAwarded > 0 {
+		_, err = s.DB.UpsertUserProgress(ctx, database.UpsertUserProgressParams{
+			UserID:        userID,
+			ContentItemID: contentItemID,
+			Completed:     true,
+			ProgressPct:   100.0,
+			LastPosition:  progress.LastPosition,
+			LastAccessed:  sql.NullTime{Time: time.Now(), Valid: true},
+			XpAwarded:     true,
+			XpAmount:      int32(xpResult.XPAwarded),
+		})
+		if err != nil {
+			log.Printf("Warning: Failed to update XP tracking for content %s: %v", contentItemID, err)
+		}
+
+		log.Printf("✅ Content completed! User %s earned %d XP from content %s", userID, xpResult.XPAwarded, contentItemID)
+		if xpResult.LeveledUp {
+			log.Printf("🎉 Level up! User %s is now level %d (was level %d)", userID, xpResult.NewLevel, xpResult.OldLevel)
+		}
+		if xpResult.GemsAwarded > 0 {
+			log.Printf("💎 Gems awarded! User %s earned %d gems", userID, xpResult.GemsAwarded)
+		}
+	} else if xpResult != nil && xpResult.AlreadyAwarded {
+		log.Printf("ℹ️  Content %s already awarded XP to user %s (no double-dipping!)", contentItemID, userID)
+	}
+
+	return nil
 }
 
 // UpdateContentItemProgress updates progress for a content item (for videos, etc.)

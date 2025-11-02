@@ -371,7 +371,20 @@ func (h *ProgressHandler) MarkContentCompleted(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	SendSuccessResponse(w, "Content marked as completed", progress,
+	// Build response with gamification data
+	type gamificationDataResponse struct {
+		Progress  database.UserProgress `json:"progress"`
+		XpAwarded bool                  `json:"xp_awarded"`
+		XpAmount  int32                 `json:"xp_amount"`
+	}
+
+	response := gamificationDataResponse{
+		Progress:  progress,
+		XpAwarded: progress.XpAwarded,
+		XpAmount:  progress.XpAmount,
+	}
+
+	SendSuccessResponse(w, "Content marked as completed", response,
 		"Content successfully marked as completed")
 }
 

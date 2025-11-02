@@ -45,6 +45,51 @@ func (h *ProfileHandler) List(w http.ResponseWriter, r *http.Request) {
 		"Successfully retrieved and returned profile list")
 }
 
+// Get handles GET /api/profiles/{id} - returns a single profile
+// @Summary Get a profile by ID
+// @Description Get a single user profile with up-to-date gamification stats
+// @Tags profiles
+// @Accept json
+// @Produce json
+// @Param id path string true "Profile ID"
+// @Success 200 {object} map[string]interface{} "Successfully retrieved profile"
+// @Failure 400 {object} map[string]interface{} "Invalid profile ID format"
+// @Failure 404 {object} map[string]interface{} "Profile not found"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /profiles/{id} [get]
+func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Profile get requested from IP: %s", r.RemoteAddr)
+
+	// extract profile ID from URL path
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 4 {
+		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
+			"Invalid URL path in profile get request", nil)
+		return
+	}
+
+	profileIDStr := pathParts[3]
+	profileID, err := uuid.Parse(profileIDStr)
+	if err != nil {
+		SendErrorResponse(w, "Invalid profile ID format", http.StatusBadRequest,
+			"Invalid UUID format in profile get request", err)
+		return
+	}
+
+	log.Printf("Getting profile: %s", profileID.String())
+
+	// get profile from service
+	profile, err := h.Service.GetProfileByID(r.Context(), profileID)
+	if err != nil {
+		SendErrorResponse(w, "Profile not found", http.StatusNotFound,
+			"Profile does not exist", err)
+		return
+	}
+
+	SendSuccessResponse(w, "Profile retrieved successfully", profile,
+		"Profile "+profileID.String()+" retrieved successfully")
+}
+
 // Create handles POST /api/profiles - makes new profile
 // @Summary Create a new profile
 // @Description Create a new user profile with the provided name

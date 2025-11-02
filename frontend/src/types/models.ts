@@ -3,6 +3,7 @@ export interface Profile {
     id: string;
     name: string;
     experience: number;
+    level: number;
     gems: number;
     streak: number;
     last_active_date?: string;

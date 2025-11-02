@@ -13,6 +13,12 @@ function HomePage(): JSX.Element {
     const [showProfileCreation, setShowProfileCreation] = useState<boolean>(false)
     const [showCourseScanner, setShowCourseScanner] = useState<boolean>(false)
     const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
+    const [profileStats, setProfileStats] = useState<{
+        experience: number
+        gems: number
+        level: number
+        streak: number
+    } | null>(null)
 
     const baseURL = 'http://localhost:8080'
 
@@ -25,8 +31,20 @@ function HomePage(): JSX.Element {
     useEffect(() => {
         if (selectedProfile) {
             fetchCourses()
+            fetchProfileStats() // Fetch latest stats when profile selected
         }
     }, [selectedProfile])
+
+    // Refresh profile stats periodically when viewing courses
+    useEffect(() => {
+        if (selectedProfile && !selectedCourse) {
+            const interval = setInterval(() => {
+                fetchProfileStats()
+            }, 5000) // Refresh every 5 seconds
+
+            return () => clearInterval(interval)
+        }
+    }, [selectedProfile, selectedCourse])
 
     const fetchProfiles = async (): Promise<void> => {
         try {
@@ -51,6 +69,28 @@ function HomePage(): JSX.Element {
             }
         } catch (error) {
             console.error('Error fetching courses:', error)
+        }
+    }
+
+    const fetchProfileStats = async (): Promise<void> => {
+        if (!selectedProfile) return
+
+        try {
+            const response = await fetch(`${baseURL}/api/profiles/${selectedProfile.id}`)
+            const data: ApiResponse<Profile> = await response.json()
+            if (data.success && data.data) {
+                // Update the stats state with fresh data
+                setProfileStats({
+                    experience: data.data.experience || 0,
+                    gems: data.data.gems || 0,
+                    level: data.data.level || 1,
+                    streak: data.data.streak || 0
+                })
+                // Also update the selected profile
+                setSelectedProfile(data.data)
+            }
+        } catch (error) {
+            console.error('Error fetching profile stats:', error)
         }
     }
 
@@ -95,6 +135,7 @@ function HomePage(): JSX.Element {
     const handleBackToCourses = (): void => {
         setSelectedCourse(null)
         fetchCourses()
+        fetchProfileStats() // Refresh stats after completing content
     }
 
     if (loading) {
@@ -183,9 +224,18 @@ function HomePage(): JSX.Element {
                             <div>
                                 <h1>Welcome back, {selectedProfile.name}!</h1>
                                 <div className="user-stats">
-                                    <span className="stat-badge">⭐ {selectedProfile.experience || 0} XP</span>
-                                    <span className="stat-badge">💎 {selectedProfile.gems || 0} Gems</span>
-                                    <span className="stat-badge">🔥 {selectedProfile.streak || 0} Day Streak</span>
+                                    <span className="stat-badge level">
+                                        ⭐ Level {profileStats?.level || selectedProfile.level || 1}
+                                    </span>
+                                    <span className="stat-badge xp">
+                                        💫 {profileStats?.experience || selectedProfile.experience || 0} XP
+                                    </span>
+                                    <span className="stat-badge gems">
+                                        💎 {profileStats?.gems || selectedProfile.gems || 0} Gems
+                                    </span>
+                                    <span className="stat-badge streak">
+                                        🔥 {profileStats?.streak || selectedProfile.streak || 0} Day Streak
+                                    </span>
                                 </div>
                             </div>
                         </div>

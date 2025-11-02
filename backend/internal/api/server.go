@@ -66,6 +66,7 @@ func (s *Server) setupRoutes() {
 
 	// profile management
 	s.Router.HandleFunc("GET /api/profiles", s.ProfileHandler.List)
+	s.Router.HandleFunc("GET /api/profiles/{id}", s.ProfileHandler.Get)
 	s.Router.HandleFunc("POST /api/profiles", s.ProfileHandler.Create)
 	s.Router.HandleFunc("PUT /api/profiles", s.ProfileHandler.Update)
 	s.Router.HandleFunc("DELETE /api/profiles", s.ProfileHandler.Delete)

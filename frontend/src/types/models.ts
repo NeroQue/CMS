@@ -163,3 +163,20 @@ export interface SaveProgressRequest {
 export interface CompleteContentRequest {
     user_id: string
 }
+
+//XP Award Data
+export interface XPAwardData {
+    xp_awarded: boolean
+    xp_amount: number
+    leveled_up?: boolean
+    old_level?: number
+    new_level?: number
+    gems_awarded?: number
+}
+
+export interface CompletionResponse {
+    progress: UserProgress
+    xp_awarded: boolean
+    xp_amount: number
+}
+

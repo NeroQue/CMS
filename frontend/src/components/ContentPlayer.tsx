@@ -1,6 +1,14 @@
 import {useEffect, useRef, useState} from 'react'
 import './ContentPlayer.css'
-import {ApiResponse, CompleteContentRequest, ContentItem, SaveProgressRequest, UserProgress,} from '../types/models'
+import {
+    ApiResponse,
+    CompleteContentRequest,
+    ContentItem,
+    Profile,
+    SaveProgressRequest,
+    UserProgress,
+} from '../types/models'
+import XPNotification from './XPNotification'
 
 const baseURL = 'http://localhost:8080'
 
@@ -17,6 +25,15 @@ function ContentPlayer({content, userId, onClose}: ContentPlayerProps) {
     const [isCompleted, setIsCompleted] = useState<boolean>(false)
     const videoRef = useRef<HTMLVideoElement>(null)
     const saveIntervalRef = useRef<NodeJS.Timeout | null>(null)
+    const [notifications, setNotifications] = useState<Array<{
+        id: string
+        type: 'xp' | 'levelup' | 'gems'
+        amount?: number
+        oldLevel?: number
+        newLevel?: number
+    }>>([])
+    const [, setProfileBeforeCompletion] = useState<Profile | null>(null)
+
 
     useEffect(() => {
         fetchProgress()
@@ -103,7 +120,41 @@ function ContentPlayer({content, userId, onClose}: ContentPlayerProps) {
         }
     }
 
+    const fetchProfileStats = async (): Promise<Profile | null> => {
+        try {
+            const response = await fetch(`${baseURL}/api/profiles/${userId}`)
+            const data: ApiResponse<Profile> = await response.json()
+            if (data.success && data.data) {
+                return data.data
+            }
+            return null
+        } catch (err) {
+            console.error('Error fetching profile stats:', err)
+            return null
+        }
+    }
+
+    const addNotification = (notification: {
+        type: 'xp' | 'levelup' | 'gems',
+        amount?: number,
+        oldLevel?: number,
+        newLevel?: number
+    }) => {
+        const id = Date.now().toString() + Math.random().toString(36).substr(2, 9)
+        setNotifications(prev => [...prev, {...notification, id}])
+    }
+
+    const removeNotification = (id: string) => {
+        setNotifications(prev => prev.filter(n => n.id !== id))
+    }
+
     const handleMarkComplete = async () => {
+        // Fetch profile stats BEFORE marking complete
+        const oldProfile = await fetchProfileStats()
+        if (oldProfile) {
+            setProfileBeforeCompletion(oldProfile)
+        }
+
         const requestBody: CompleteContentRequest = {
             user_id: userId,
         }
@@ -115,11 +166,43 @@ function ContentPlayer({content, userId, onClose}: ContentPlayerProps) {
                 body: JSON.stringify(requestBody),
             })
 
-            const data: ApiResponse<UserProgress> = await response.json()
+            const data: ApiResponse<any> = await response.json()
 
             if (data.success && data.data) {
                 setIsCompleted(true)
-                setProgress(data.data)
+                setProgress(data.data.progress || data.data)
+
+                // Extract XP data from response
+                const xpAwarded = data.data.xp_awarded
+                const xpAmount = data.data.xp_amount
+
+                // Show XP notification if earned
+                if (xpAwarded && xpAmount > 0) {
+                    addNotification({type: 'xp', amount: xpAmount})
+                }
+
+                // Fetch new profile to check for level-up/gems
+                const newProfile = await fetchProfileStats()
+                if (oldProfile && newProfile) {
+                    // Calculate levels
+                    const oldLevel = Math.floor(oldProfile.experience / 100) + 1
+                    const newLevel = Math.floor(newProfile.experience / 100) + 1
+
+                    // Check for level up
+                    if (newLevel > oldLevel) {
+                        addNotification({
+                            type: 'levelup',
+                            oldLevel: oldLevel,
+                            newLevel: newLevel
+                        })
+                    }
+
+                    // Check for gems
+                    const gemsEarned = newProfile.gems - oldProfile.gems
+                    if (gemsEarned > 0) {
+                        addNotification({type: 'gems', amount: gemsEarned})
+                    }
+                }
             } else {
                 setError('Failed to mark as complete')
             }
@@ -223,6 +306,7 @@ function ContentPlayer({content, userId, onClose}: ContentPlayerProps) {
                     {progress && progress.LastPosition?.Valid && progress.LastPosition.Int32 > 0 && !isCompleted && (
                         <button className="resume-button" onClick={() => {
                             if (videoRef.current && content.content_type === 'video') {
+                                // @ts-ignore
                                 videoRef.current.currentTime = progress.LastPosition.Int32;
                                 videoRef.current.play();
                             }
@@ -248,6 +332,18 @@ function ContentPlayer({content, userId, onClose}: ContentPlayerProps) {
                     )}
                 </div>
             </div>
+
+            {/* XP Notifications */}
+            {notifications.map(notification => (
+                <XPNotification
+                    key={notification.id}
+                    type={notification.type}
+                    amount={notification.amount}
+                    oldLevel={notification.oldLevel}
+                    newLevel={notification.newLevel}
+                    onClose={() => removeNotification(notification.id)}
+                />
+            ))}
         </div>
     )
 }

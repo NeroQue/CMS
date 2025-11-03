@@ -138,6 +138,47 @@ function HomePage(): JSX.Element {
         fetchProfileStats() // Refresh stats after completing content
     }
 
+    const handleDeleteProfile = async (profileId: string, profileName: string, e: React.MouseEvent): Promise<void> => {
+        // Stop propagation to prevent profile selection
+        e.stopPropagation()
+
+        // Confirm deletion
+        const confirmDelete = window.confirm(
+            `Are you sure you want to delete the profile "${profileName}"?\n\nThis will permanently delete all progress and cannot be undone.`
+        )
+
+        if (!confirmDelete) {
+            return
+        }
+
+        try {
+            const response = await fetch(`${baseURL}/api/profiles`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({user_id: profileId}),
+            })
+
+            const data: ApiResponse<null> = await response.json()
+
+            if (data.success) {
+                // If deleted profile was selected, clear selection
+                if (selectedProfile?.id === profileId) {
+                    setSelectedProfile(null)
+                    setCourses([])
+                }
+                // Refresh profile list
+                fetchProfiles()
+            } else {
+                alert(`Failed to delete profile: ${data.message}`)
+            }
+        } catch (error) {
+            console.error('Error deleting profile:', error)
+            alert('Network error. Please try again.')
+        }
+    }
+
     if (loading) {
         return <div className="loading">Loading...</div>
     }
@@ -178,21 +219,30 @@ function HomePage(): JSX.Element {
                         <div className="profiles-grid">
                             {profiles.length > 0 ? (
                                 profiles.map((profile) => (
-                                    <button
-                                        key={profile.id}
-                                        className="profile-button"
-                                        onClick={() => handleProfileSelect(profile)}
-                                    >
-                                        <div className="profile-avatar">
-                                            {profile.name.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className="profile-name">{profile.name}</div>
-                                        <div className="profile-stats">
-                                            <span>⭐ {profile.experience || 0} XP</span>
-                                            <span>💎 {profile.gems || 0}</span>
-                                            <span>🔥 {profile.streak || 0} day streak</span>
-                                        </div>
-                                    </button>
+                                    <div key={profile.id} className="profile-card">
+                                        <button
+                                            className="profile-button"
+                                            onClick={() => handleProfileSelect(profile)}
+                                        >
+                                            <div className="profile-avatar">
+                                                {profile.name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div className="profile-name">{profile.name}</div>
+                                            <div className="profile-stats">
+                                                <span>Level {profile.level || 1} </span>
+                                                <span>⭐ {profile.experience || 0} XP</span>
+                                                <span>💎 {profile.gems || 0}</span>
+                                                <span>🔥 {profile.streak || 0} day streak</span>
+                                            </div>
+                                        </button>
+                                        <button
+                                            className="delete-profile-button"
+                                            onClick={(e) => handleDeleteProfile(profile.id, profile.name, e)}
+                                            title="Delete profile"
+                                        >
+                                            Delete Profile
+                                        </button>
+                                    </div>
                                 ))
                             ) : (
                                 <div className="no-profiles">

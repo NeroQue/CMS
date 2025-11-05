@@ -91,6 +91,14 @@ func (s *GamificationService) AwardXPForContent(ctx context.Context, userID uuid
 	log.Printf("Awarding XP: user %s, old XP: %d (level %d), new XP: %d (level %d), gems: %d",
 		userID, oldXP, oldLevel, newXP, newLevel, gemsAwarded)
 
+	// Calculate new streak
+	newStreak, shouldUpdateStreak := gamification.CalculateNewStreak(profile.LastActiveDate, int(profile.Streak))
+	if !shouldUpdateStreak {
+		newStreak = int(profile.Streak)
+	}
+	log.Printf("Streak update: user %s, old streak: %d, new streak: %d, should_update: %v",
+		userID, profile.Streak, newStreak, shouldUpdateStreak)
+
 	// Update profile with new XP, gems, and level
 	_, err = s.DB.UpdateProfileGamification(ctx, database.UpdateProfileGamificationParams{
 		ID:             userID,
@@ -98,6 +106,7 @@ func (s *GamificationService) AwardXPForContent(ctx context.Context, userID uuid
 		Gems:           profile.Gems + int32(gemsAwarded),
 		Level:          int32(newLevel),
 		LastActiveDate: sql.NullTime{Time: time.Now(), Valid: true},
+		Streak:         int32(newStreak),
 	})
 
 	if err != nil {

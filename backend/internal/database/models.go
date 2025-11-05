@@ -54,6 +54,7 @@ type Profile struct {
 	Experience     int32
 	Gems           int32
 	Level          int32
+	Streak         int32
 	LastActiveDate sql.NullTime
 }
 

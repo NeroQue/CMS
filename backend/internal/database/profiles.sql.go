@@ -18,7 +18,7 @@ SET experience = experience + $2,
     level      = (experience + $2) / 100 + 1,
     updated_at = now()
 WHERE id = $1
-RETURNING id, name, created_at, updated_at, experience, gems, level, last_active_date
+RETURNING id, name, created_at, updated_at, experience, gems, level, streak, last_active_date
 `
 
 type AddExperienceToProfileParams struct {
@@ -37,6 +37,7 @@ func (q *Queries) AddExperienceToProfile(ctx context.Context, arg AddExperienceT
 		&i.Experience,
 		&i.Gems,
 		&i.Level,
+		&i.Streak,
 		&i.LastActiveDate,
 	)
 	return i, err
@@ -48,7 +49,7 @@ VALUES ($1,
         now(),
         now(),
         $2)
-RETURNING id, name, created_at, updated_at, experience, gems, level, last_active_date
+RETURNING id, name, created_at, updated_at, experience, gems, level, streak, last_active_date
 `
 
 type CreateProfileParams struct {
@@ -67,6 +68,7 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 		&i.Experience,
 		&i.Gems,
 		&i.Level,
+		&i.Streak,
 		&i.LastActiveDate,
 	)
 	return i, err
@@ -84,7 +86,7 @@ func (q *Queries) DeleteProfile(ctx context.Context, id uuid.UUID) error {
 }
 
 const getAllProfiles = `-- name: GetAllProfiles :many
-SELECT id, name, created_at, updated_at, experience, gems, level, last_active_date
+SELECT id, name, created_at, updated_at, experience, gems, level, streak, last_active_date
 FROM profiles
 `
 
@@ -105,6 +107,7 @@ func (q *Queries) GetAllProfiles(ctx context.Context) ([]Profile, error) {
 			&i.Experience,
 			&i.Gems,
 			&i.Level,
+			&i.Streak,
 			&i.LastActiveDate,
 		); err != nil {
 			return nil, err
@@ -121,7 +124,7 @@ func (q *Queries) GetAllProfiles(ctx context.Context) ([]Profile, error) {
 }
 
 const getProfileById = `-- name: GetProfileById :one
-SELECT id, name, created_at, updated_at, experience, gems, level, last_active_date
+SELECT id, name, created_at, updated_at, experience, gems, level, streak, last_active_date
 FROM profiles
 WHERE id = $1
 `
@@ -137,13 +140,14 @@ func (q *Queries) GetProfileById(ctx context.Context, id uuid.UUID) (Profile, er
 		&i.Experience,
 		&i.Gems,
 		&i.Level,
+		&i.Streak,
 		&i.LastActiveDate,
 	)
 	return i, err
 }
 
 const getProfileByName = `-- name: GetProfileByName :one
-SELECT id, name, created_at, updated_at, experience, gems, level, last_active_date
+SELECT id, name, created_at, updated_at, experience, gems, level, streak, last_active_date
 FROM profiles
 WHERE name = $1
 `
@@ -159,13 +163,14 @@ func (q *Queries) GetProfileByName(ctx context.Context, name string) (Profile, e
 		&i.Experience,
 		&i.Gems,
 		&i.Level,
+		&i.Streak,
 		&i.LastActiveDate,
 	)
 	return i, err
 }
 
 const getProfileWithStats = `-- name: GetProfileWithStats :one
-SELECT p.id, p.name, p.created_at, p.updated_at, p.experience, p.gems, p.level, p.last_active_date,
+SELECT p.id, p.name, p.created_at, p.updated_at, p.experience, p.gems, p.level, p.streak, p.last_active_date,
        (p.experience % 100)         as xp_in_level,
        (100 - (p.experience % 100)) as xp_to_next_level
 FROM profiles p
@@ -180,6 +185,7 @@ type GetProfileWithStatsRow struct {
 	Experience     int32
 	Gems           int32
 	Level          int32
+	Streak         int32
 	LastActiveDate sql.NullTime
 	XpInLevel      int32
 	XpToNextLevel  int32
@@ -196,6 +202,7 @@ func (q *Queries) GetProfileWithStats(ctx context.Context, id uuid.UUID) (GetPro
 		&i.Experience,
 		&i.Gems,
 		&i.Level,
+		&i.Streak,
 		&i.LastActiveDate,
 		&i.XpInLevel,
 		&i.XpToNextLevel,
@@ -204,7 +211,7 @@ func (q *Queries) GetProfileWithStats(ctx context.Context, id uuid.UUID) (GetPro
 }
 
 const getProfilesByNamePattern = `-- name: GetProfilesByNamePattern :many
-SELECT id, name, created_at, updated_at, experience, gems, level, last_active_date
+SELECT id, name, created_at, updated_at, experience, gems, level, streak, last_active_date
 FROM profiles
 WHERE name LIKE $1
 `
@@ -226,6 +233,7 @@ func (q *Queries) GetProfilesByNamePattern(ctx context.Context, name string) ([]
 			&i.Experience,
 			&i.Gems,
 			&i.Level,
+			&i.Streak,
 			&i.LastActiveDate,
 		); err != nil {
 			return nil, err
@@ -258,7 +266,7 @@ UPDATE profiles
 SET name       = $2,
     updated_at = now()
 WHERE id = $1
-RETURNING id, name, created_at, updated_at, experience, gems, level, last_active_date
+RETURNING id, name, created_at, updated_at, experience, gems, level, streak, last_active_date
 `
 
 type UpdateProfileByIDParams struct {
@@ -277,6 +285,7 @@ func (q *Queries) UpdateProfileByID(ctx context.Context, arg UpdateProfileByIDPa
 		&i.Experience,
 		&i.Gems,
 		&i.Level,
+		&i.Streak,
 		&i.LastActiveDate,
 	)
 	return i, err
@@ -288,9 +297,10 @@ SET experience       = $2,
     gems             = $3,
     level            = $4,
     last_active_date = $5,
+    streak           = $6,
     updated_at       = now()
 WHERE id = $1
-RETURNING id, name, created_at, updated_at, experience, gems, level, last_active_date
+RETURNING id, name, created_at, updated_at, experience, gems, level, streak, last_active_date
 `
 
 type UpdateProfileGamificationParams struct {
@@ -299,6 +309,7 @@ type UpdateProfileGamificationParams struct {
 	Gems           int32
 	Level          int32
 	LastActiveDate sql.NullTime
+	Streak         int32
 }
 
 func (q *Queries) UpdateProfileGamification(ctx context.Context, arg UpdateProfileGamificationParams) (Profile, error) {
@@ -308,6 +319,7 @@ func (q *Queries) UpdateProfileGamification(ctx context.Context, arg UpdateProfi
 		arg.Gems,
 		arg.Level,
 		arg.LastActiveDate,
+		arg.Streak,
 	)
 	var i Profile
 	err := row.Scan(
@@ -318,6 +330,39 @@ func (q *Queries) UpdateProfileGamification(ctx context.Context, arg UpdateProfi
 		&i.Experience,
 		&i.Gems,
 		&i.Level,
+		&i.Streak,
+		&i.LastActiveDate,
+	)
+	return i, err
+}
+
+const updateProfileStreak = `-- name: UpdateProfileStreak :one
+UPDATE profiles
+SET streak           = $2,
+    last_active_date = $3,
+    updated_at       = now()
+WHERE id = $1
+RETURNING id, name, created_at, updated_at, experience, gems, level, streak, last_active_date
+`
+
+type UpdateProfileStreakParams struct {
+	ID             uuid.UUID
+	Streak         int32
+	LastActiveDate sql.NullTime
+}
+
+func (q *Queries) UpdateProfileStreak(ctx context.Context, arg UpdateProfileStreakParams) (Profile, error) {
+	row := q.db.QueryRowContext(ctx, updateProfileStreak, arg.ID, arg.Streak, arg.LastActiveDate)
+	var i Profile
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Experience,
+		&i.Gems,
+		&i.Level,
+		&i.Streak,
 		&i.LastActiveDate,
 	)
 	return i, err

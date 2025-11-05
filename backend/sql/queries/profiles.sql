@@ -47,6 +47,7 @@ SET experience       = $2,
     gems             = $3,
     level            = $4,
     last_active_date = $5,
+    streak           = $6,
     updated_at       = now()
 WHERE id = $1
 RETURNING *;
@@ -65,3 +66,12 @@ SELECT p.*,
        (100 - (p.experience % 100)) as xp_to_next_level
 FROM profiles p
 WHERE p.id = $1;
+
+-- name: UpdateProfileStreak :one
+UPDATE profiles
+SET streak           = $2,
+    last_active_date = $3,
+    updated_at       = now()
+WHERE id = $1
+RETURNING *;
+

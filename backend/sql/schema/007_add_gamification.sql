@@ -4,6 +4,7 @@ ALTER TABLE profiles
     ADD COLUMN experience       INT NOT NULL DEFAULT 0,
     ADD COLUMN gems             INT NOT NULL DEFAULT 0,
     ADD COLUMN level            INT NOT NULL DEFAULT 1,
+    ADD COLUMN streak           INT NOT NULL DEFAULT 0,
     ADD COLUMN last_active_date TIMESTAMP;
 
 -- Add XP value column to content_items for manual overrides
@@ -31,6 +32,7 @@ ALTER TABLE content_items
 
 ALTER TABLE profiles
     DROP COLUMN last_active_date,
+    DROP COLUMN streak,
     DROP COLUMN level,
     DROP COLUMN gems,
     DROP COLUMN experience;

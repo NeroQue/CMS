@@ -1,4 +1,4 @@
-import {JSX, useEffect, useState} from 'react'
+import {JSX, useEffect, useState, useRef} from 'react'
 import {ApiResponse, Course, Profile} from '../types/models'
 import ProfileCreation from './ProfileCreation'
 import CourseScanner from './CourseScanner'
@@ -20,31 +20,25 @@ function HomePage(): JSX.Element {
         streak: number
     } | null>(null)
 
+    // Ref to prevent concurrent stat fetches
+    const isFetchingStats = useRef(false)
+
     const baseURL = 'http://localhost:8080'
 
     // Fetch profiles on mount
     useEffect(() => {
         fetchProfiles()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    // Fetch courses when profile is selected
+    // Fetch courses and stats when profile is selected (only on profile ID change)
     useEffect(() => {
-        if (selectedProfile) {
+        if (selectedProfile?.id) {
             fetchCourses()
-            fetchProfileStats() // Fetch latest stats when profile selected
+            fetchProfileStats()
         }
-    }, [selectedProfile])
-
-    // Refresh profile stats periodically when viewing courses
-    useEffect(() => {
-        if (selectedProfile && !selectedCourse) {
-            const interval = setInterval(() => {
-                fetchProfileStats()
-            }, 5000) // Refresh every 5 seconds
-
-            return () => clearInterval(interval)
-        }
-    }, [selectedProfile, selectedCourse])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedProfile?.id])
 
     const fetchProfiles = async (): Promise<void> => {
         try {
@@ -73,24 +67,27 @@ function HomePage(): JSX.Element {
     }
 
     const fetchProfileStats = async (): Promise<void> => {
-        if (!selectedProfile) return
+        if (!selectedProfile || isFetchingStats.current) return
 
+        isFetchingStats.current = true
         try {
             const response = await fetch(`${baseURL}/api/profiles/${selectedProfile.id}`)
             const data: ApiResponse<Profile> = await response.json()
             if (data.success && data.data) {
-                // Update the stats state with fresh data
-                setProfileStats({
+                // Update only the stats state with fresh data
+                const newStats = {
                     experience: data.data.experience || 0,
                     gems: data.data.gems || 0,
                     level: data.data.level || 1,
                     streak: data.data.streak || 0
-                })
-                // Also update the selected profile
-                setSelectedProfile(data.data)
+                }
+                console.log('Fetched profile stats:', newStats)
+                setProfileStats(newStats)
             }
         } catch (error) {
             console.error('Error fetching profile stats:', error)
+        } finally {
+            isFetchingStats.current = false
         }
     }
 
@@ -100,6 +97,13 @@ function HomePage(): JSX.Element {
                 method: 'POST',
             })
             setSelectedProfile(profile)
+            // Initialize stats from the selected profile immediately
+            setProfileStats({
+                experience: profile.experience || 0,
+                gems: profile.gems || 0,
+                level: profile.level || 1,
+                streak: profile.streak || 0
+            })
         } catch (error) {
             console.error('Error selecting profile:', error)
         }
@@ -275,16 +279,16 @@ function HomePage(): JSX.Element {
                                 <h1>Welcome back, {selectedProfile.name}!</h1>
                                 <div className="user-stats">
                                     <span className="stat-badge level">
-                                        ⭐ Level {profileStats?.level || selectedProfile.level || 1}
+                                        ⭐ Level {profileStats?.level ?? 1}
                                     </span>
                                     <span className="stat-badge xp">
-                                        💫 {profileStats?.experience || selectedProfile.experience || 0} XP
+                                        💫 {profileStats?.experience ?? 0} XP
                                     </span>
                                     <span className="stat-badge gems">
-                                        💎 {profileStats?.gems || selectedProfile.gems || 0} Gems
+                                        💎 {profileStats?.gems ?? 0} Gems
                                     </span>
                                     <span className="stat-badge streak">
-                                        🔥 {profileStats?.streak || selectedProfile.streak || 0} Day Streak
+                                        🔥 {profileStats?.streak ?? 0} Day Streak
                                     </span>
                                 </div>
                             </div>

@@ -17,7 +17,7 @@ function CourseScanner({onCoursesImported, onCancel}: CourseScannerProps) {
     const [error, setError] = useState<string>('')
     const [successMessage, setSuccessMessage] = useState<string>('')
 
-    const baseURL = 'http://localhost:8080'
+    const baseURL = import.meta.env.VITE_BASE_URL
 
     // Cleanup interval on unmount
     useEffect(() => {

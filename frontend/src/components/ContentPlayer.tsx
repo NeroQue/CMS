@@ -10,7 +10,7 @@ import {
 } from '../types/models'
 import XPNotification from './XPNotification'
 
-const baseURL = 'http://localhost:8080'
+const baseURL = import.meta.env.VITE_BASE_URL
 
 interface ContentPlayerProps {
     content: ContentItem

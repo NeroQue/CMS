@@ -12,7 +12,7 @@ function ProfileCreation({onProfileCreated, onCancel}: ProfileCreationProps) {
     const [loading, setLoading] = useState<boolean>(false)
     const [error, setError] = useState<string>('')
 
-    const baseURL = 'http://localhost:8080'
+    const baseURL = import.meta.env.VITE_BASE_URL
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault()

@@ -3,7 +3,7 @@ import './CourseDetail.css'
 import {ApiResponse, ContentItem, Course, CourseProgress, Module,} from '../types/models'
 import ContentPlayer from './ContentPlayer'
 
-const baseURL = 'http://localhost:8080'
+const baseURL = import.meta.env.VITE_BASE_URL
 
 interface CourseDetailProps {
     courseId: string

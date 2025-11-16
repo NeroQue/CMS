@@ -89,6 +89,12 @@ export interface ApiResponse<T> {
     error?: string;
 }
 
+// Course existence check response
+export interface CourseExistsResponse {
+    exists: boolean;
+    missing_paths: string[];
+}
+
 // Course directory info from filesystem scan
 export interface CourseDirectory {
     path: string

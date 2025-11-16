@@ -369,3 +369,98 @@ func (h *CourseHandler) ServeContentFile(w http.ResponseWriter, r *http.Request)
 	// serve the file
 	http.ServeFile(w, r, fullPath)
 }
+
+// Delete handles DELETE /api/courses/{id} - removes a course from the database
+// @Summary Delete a course
+// @Description Delete a course from the database (does not remove files from disk)
+// @Tags courses
+// @Accept json
+// @Produce json
+// @Param id path string true "Course ID"
+// @Success 200 {object} map[string]interface{} "Course deleted successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid course ID"
+// @Failure 404 {object} map[string]interface{} "Course not found"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /courses/{id} [delete]
+func (h *CourseHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Course deletion requested from IP: %s", r.RemoteAddr)
+
+	// extract course ID from URL path
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 4 {
+		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
+			"Invalid URL path in course deletion request", nil)
+		return
+	}
+
+	courseIDStr := pathParts[3]
+	courseID, err := uuid.Parse(courseIDStr)
+	if err != nil {
+		SendErrorResponse(w, "Invalid course ID format", http.StatusBadRequest,
+			"Invalid course UUID in deletion request", err)
+		return
+	}
+
+	log.Printf("Deleting course %s", courseID.String())
+
+	// delete the course using the service
+	err = h.Service.DeleteCourse(r.Context(), courseID)
+	if err != nil {
+		SendErrorResponse(w, "Failed to delete course", http.StatusInternalServerError,
+			"Error deleting course from database", err)
+		return
+	}
+
+	SendSuccessResponse(w, "Course deleted successfully", nil,
+		"Course deleted from database: "+courseID.String())
+}
+
+// CheckCourseExists handles GET /api/courses/{id}/exists - checks if course directory exists on disk
+// @Summary Check if course exists on disk
+// @Description Verify that the course directory and files still exist on the filesystem
+// @Tags courses
+// @Accept json
+// @Produce json
+// @Param id path string true "Course ID"
+// @Success 200 {object} map[string]interface{} "Returns exists: true/false and missing files if any"
+// @Failure 400 {object} map[string]interface{} "Invalid course ID"
+// @Failure 404 {object} map[string]interface{} "Course not found in database"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /courses/{id}/exists [get]
+func (h *CourseHandler) CheckCourseExists(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Course existence check requested from IP: %s", r.RemoteAddr)
+
+	// extract course ID from URL path
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 4 {
+		SendErrorResponse(w, "Invalid URL path format", http.StatusBadRequest,
+			"Invalid URL path in existence check request", nil)
+		return
+	}
+
+	courseIDStr := pathParts[3]
+	courseID, err := uuid.Parse(courseIDStr)
+	if err != nil {
+		SendErrorResponse(w, "Invalid course ID format", http.StatusBadRequest,
+			"Invalid course UUID in existence check request", err)
+		return
+	}
+
+	log.Printf("Checking existence for course %s", courseID.String())
+
+	// check if course exists on disk
+	exists, missingPaths, err := h.Service.CheckCourseExistsOnDisk(r.Context(), courseID)
+	if err != nil {
+		SendErrorResponse(w, "Failed to check course existence", http.StatusInternalServerError,
+			"Error checking course existence", err)
+		return
+	}
+
+	responseData := map[string]interface{}{
+		"exists":        exists,
+		"missing_paths": missingPaths,
+	}
+
+	SendSuccessResponse(w, "Course existence checked", responseData,
+		"Course existence verification completed")
+}

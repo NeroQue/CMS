@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react'
 import './CourseDetail.css'
 import {ApiResponse, ContentItem, Course, CourseProgress, Module,} from '../types/models'
 import ContentPlayer from './ContentPlayer'
+import CourseDeleteModal from './CourseDeleteModal'
 
 const baseURL = import.meta.env.VITE_BASE_URL
 
@@ -18,10 +19,49 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
     const [loading, setLoading] = useState<boolean>(true)
     const [error, setError] = useState<string>('')
     const [contentProgressMap, setContentProgressMap] = useState<Map<string, boolean>>(new Map())
+    const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false)
+    const [missingPaths, setMissingPaths] = useState<string[]>([])
 
     useEffect(() => {
-        fetchCourseData()
+        checkCourseExistsAndFetch()
     }, [courseId, userId])
+
+    const checkCourseExistsAndFetch = async () => {
+        setLoading(true)
+        setError('')
+
+        try {
+            // First, check if the course exists on disk
+            const existsResponse = await fetch(`${baseURL}/api/courses/${courseId}/exists`)
+            const existsData: ApiResponse<{ exists: boolean, missing_paths: string[] }> = await existsResponse.json()
+
+            if (existsData.success && existsData.data) {
+                if (!existsData.data.exists) {
+                    // Course doesn't exist on disk, show modal
+                    setMissingPaths(existsData.data.missing_paths || [])
+
+                    // Still fetch course data to get the name for the modal
+                    const courseResponse = await fetch(`${baseURL}/api/courses/${courseId}`)
+                    const courseData: ApiResponse<Course> = await courseResponse.json()
+
+                    if (courseData.success && courseData.data) {
+                        setCourse(courseData.data)
+                    }
+
+                    setShowDeleteModal(true)
+                    setLoading(false)
+                    return
+                }
+            }
+
+            // Course exists, proceed with normal fetching
+            await fetchCourseData()
+        } catch (err) {
+            console.error('Error checking course existence:', err)
+            // If check fails, try to load normally
+            await fetchCourseData()
+        }
+    }
 
     const fetchCourseData = async () => {
         setLoading(true)
@@ -87,6 +127,32 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
 
     const isContentCompleted = (contentId: string): boolean => {
         return contentProgressMap.get(contentId) === true
+    }
+
+    const handleDeleteCourse = async () => {
+        try {
+            const response = await fetch(`${baseURL}/api/courses/${courseId}`, {
+                method: 'DELETE'
+            })
+            const data: ApiResponse<any> = await response.json()
+
+            if (data.success) {
+                // Course deleted successfully, go back
+                onBack()
+            } else {
+                setError('Failed to delete course from database')
+                setShowDeleteModal(false)
+            }
+        } catch (err) {
+            console.error('Error deleting course:', err)
+            setError('Failed to delete course. Please try again.')
+            setShowDeleteModal(false)
+        }
+    }
+
+    const handleKeepCourse = () => {
+        setShowDeleteModal(false)
+        onBack()
     }
 
     const handleResetProgress = async (): Promise<void> => {
@@ -231,6 +297,16 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
                     content={selectedContent}
                     userId={userId}
                     onClose={handleClosePlayer}
+                />
+            )}
+
+            {/* Course Delete Modal */}
+            {showDeleteModal && course && (
+                <CourseDeleteModal
+                    courseName={course.title}
+                    missingPaths={missingPaths}
+                    onConfirm={handleDeleteCourse}
+                    onCancel={handleKeepCourse}
                 />
             )}
         </div>

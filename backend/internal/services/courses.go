@@ -265,6 +265,87 @@ func (s *CourseService) DeleteCourse(ctx context.Context, courseID uuid.UUID) er
 	return nil
 }
 
+// CheckCourseExistsOnDisk verifies if a course's directory and content files exist on the filesystem
+// Returns exists (bool), missing paths ([]string), and error
+func (s *CourseService) CheckCourseExistsOnDisk(ctx context.Context, courseID uuid.UUID) (bool, []string, error) {
+	// Get the course with all modules and content items
+	course, err := s.GetCourse(ctx, courseID)
+	if err != nil {
+		return false, nil, fmt.Errorf("error getting course: %w", err)
+	}
+
+	missingPaths := []string{}
+
+	// Check if course directory exists
+	coursePath := course.RelativePath
+	fullCoursePath := filepath.Join(s.Parser.BasePath, coursePath)
+
+	// Docker container path adjustment
+	if strings.HasPrefix(fullCoursePath, "/courses/") {
+		adjustedPath := filepath.Join("../", fullCoursePath)
+		if _, err := os.Stat(adjustedPath); err == nil {
+			fullCoursePath = adjustedPath
+		}
+	}
+
+	// Check if course directory exists
+	if _, err := os.Stat(fullCoursePath); err != nil {
+		log.Printf("Course directory not found: %s", fullCoursePath)
+		missingPaths = append(missingPaths, coursePath)
+		return false, missingPaths, nil
+	}
+
+	// Check each module and content item
+	if course.Modules != nil {
+		for _, module := range course.Modules {
+			// Check module directory
+			modulePath := module.RelativePath
+			fullModulePath := filepath.Join(s.Parser.BasePath, modulePath)
+
+			// Docker container path adjustment
+			if strings.HasPrefix(fullModulePath, "/courses/") {
+				adjustedPath := filepath.Join("../", fullModulePath)
+				if _, err := os.Stat(adjustedPath); err == nil {
+					fullModulePath = adjustedPath
+				}
+			}
+
+			if _, err := os.Stat(fullModulePath); err != nil {
+				log.Printf("Module directory not found: %s", fullModulePath)
+				missingPaths = append(missingPaths, modulePath)
+			}
+
+			// Check each content item file
+			if module.ContentItems != nil {
+				for _, contentItem := range module.ContentItems {
+					contentPath := contentItem.RelativePath
+					fullContentPath := filepath.Join(s.Parser.BasePath, contentPath)
+
+					// Docker container path adjustment
+					if strings.HasPrefix(fullContentPath, "/courses/") {
+						adjustedPath := filepath.Join("../", fullContentPath)
+						if _, err := os.Stat(adjustedPath); err == nil {
+							fullContentPath = adjustedPath
+						}
+					}
+
+					if _, err := os.Stat(fullContentPath); err != nil {
+						log.Printf("Content file not found: %s", fullContentPath)
+						missingPaths = append(missingPaths, contentPath)
+					}
+				}
+			}
+		}
+	}
+
+	// If we found any missing paths, course doesn't fully exist
+	if len(missingPaths) > 0 {
+		return false, missingPaths, nil
+	}
+
+	return true, missingPaths, nil
+}
+
 // TrackUserProgress updates a user's progress for a specific content item
 // This records information like completion status and progress percentage
 func (s *CourseService) TrackUserProgress(ctx context.Context, userID, contentItemID uuid.UUID,

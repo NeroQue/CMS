@@ -76,6 +76,8 @@ func (s *Server) setupRoutes() {
 	s.Router.HandleFunc("GET /api/courses", s.CourseHandler.List)
 	s.Router.HandleFunc("GET /api/courses/{id}", s.CourseHandler.Get)
 	s.Router.HandleFunc("POST /api/courses", s.CourseHandler.Create)
+	s.Router.HandleFunc("DELETE /api/courses/{id}", s.CourseHandler.Delete)
+	s.Router.HandleFunc("GET /api/courses/{id}/exists", s.CourseHandler.CheckCourseExists)
 	s.Router.HandleFunc("GET /api/courses/directories", s.CourseHandler.ListDirectories)
 	s.Router.HandleFunc("GET /api/courses/scan", s.CourseHandler.ScanNewCourses)
 	s.Router.HandleFunc("POST /api/courses/batch", s.CourseHandler.BatchImport)

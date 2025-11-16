@@ -33,11 +33,18 @@
     font-size: 16px;
     cursor: pointer;
     border-radius: 5px;
+    transition: all 0.2s ease;
 }
 
 .nav-button:hover:not(:disabled) {
     background: #8BC040;
     color: white;
+}
+
+.nav-button.active {
+    background: #8BC040;
+    color: white;
+    font-weight: bold;
 }
 
 .nav-button:disabled {
@@ -248,11 +255,35 @@
 }
 
 .stat-badge {
-    background: rgba(255, 255, 255, 0.2);
-    padding: 8px 16px;
-    border-radius: 20px;
+    background: white;
+    padding: 10px 18px;
+    border-radius: 10px;
     font-size: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 2px solid #ccc;
+    transition: all 0.2s ease;
+    font-weight: 600;
+}
+
+.stat-badge:hover {
+    border-color: #8BC040;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.stat-badge.level {
+    color: #f59e0b;
+}
+
+.stat-badge.xp {
+    color: #8BC040;
+}
+
+.stat-badge.gems {
+    color: #06b6d4;
+}
+
+.stat-badge.streak {
+    color: #ef4444;
 }
 
 .courses-section-header {
@@ -311,10 +342,12 @@
     padding: 25px;
     color: #333;
     border: 2px solid #ccc;
+    transition: all 0.2s ease;
 }
 
 .course-card:hover {
     border-color: #8BC040;
+    transform: translateY(-2px);
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 

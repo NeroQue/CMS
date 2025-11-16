@@ -3,6 +3,7 @@ import {ApiResponse, Course, Profile} from '../types/models'
 import ProfileCreation from './ProfileCreation'
 import CourseScanner from './CourseScanner'
 import CourseDetail from './CourseDetail'
+import Dashboard from './Dashboard'
 import './HomePage.css'
 
 function HomePage(): JSX.Element {
@@ -19,11 +20,11 @@ function HomePage(): JSX.Element {
         level: number
         streak: number
     } | null>(null)
+    const [currentView, setCurrentView] = useState<'dashboard' | 'library'>('dashboard')
 
-    // Ref to prevent concurrent stat fetches
     const isFetchingStats = useRef(false)
 
-    const baseURL = 'http://localhost:8080'
+    const baseURL = import.meta.env.VITE_BASE_URL
 
     // Fetch profiles on mount
     useEffect(() => {
@@ -112,6 +113,7 @@ function HomePage(): JSX.Element {
     const handleLogout = (): void => {
         setSelectedProfile(null)
         setCourses([])
+        setCurrentView('dashboard')
     }
 
     const handleProfileCreated = (): void => {
@@ -140,6 +142,15 @@ function HomePage(): JSX.Element {
         setSelectedCourse(null)
         fetchCourses()
         fetchProfileStats() // Refresh stats after completing content
+        setCurrentView('dashboard')
+    }
+
+    const handleViewDashboard = (): void => {
+        setCurrentView('dashboard')
+    }
+
+    const handleViewLibrary = (): void => {
+        setCurrentView('library')
     }
 
     const handleDeleteProfile = async (profileId: string, profileName: string, e: React.MouseEvent): Promise<void> => {
@@ -204,8 +215,22 @@ function HomePage(): JSX.Element {
             <nav className="navbar">
                 <div className="nav-brand">Course Management System</div>
                 <div className="nav-links">
-                    <button className="nav-button" disabled>Courses</button>
-                    <button className="nav-button" disabled>Progress</button>
+                    {selectedProfile && (
+                        <>
+                            <button
+                                className={`nav-button ${currentView === 'dashboard' ? 'active' : ''}`}
+                                onClick={handleViewDashboard}
+                            >
+                                🏠 Dashboard
+                            </button>
+                            <button
+                                className={`nav-button ${currentView === 'library' ? 'active' : ''}`}
+                                onClick={handleViewLibrary}
+                            >
+                                📚 Library
+                            </button>
+                        </>
+                    )}
                     <button className="nav-button" disabled>Settings</button>
                     {selectedProfile && (
                         <button className="nav-button logout" onClick={handleLogout}>
@@ -271,12 +296,25 @@ function HomePage(): JSX.Element {
                             </button>
                         )}
                     </div>
+                ) : currentView === 'dashboard' ? (
+                    // Dashboard View
+                    <Dashboard
+                        profile={{
+                            ...selectedProfile,
+                            experience: profileStats?.experience ?? selectedProfile.experience,
+                            level: profileStats?.level ?? selectedProfile.level,
+                            gems: profileStats?.gems ?? selectedProfile.gems,
+                            streak: profileStats?.streak ?? selectedProfile.streak
+                        }}
+                        onCourseClick={handleCourseClick}
+                        onScanCourses={() => setShowCourseScanner(true)}
+                    />
                 ) : (
-                    // Courses View
+                    // Library View
                     <div className="courses-view">
                         <div className="courses-header">
                             <div>
-                                <h1>Welcome back, {selectedProfile.name}!</h1>
+                                <h1>All Courses</h1>
                                 <div className="user-stats">
                                     <span className="stat-badge level">
                                         ⭐ Level {profileStats?.level ?? 1}
@@ -295,13 +333,15 @@ function HomePage(): JSX.Element {
                         </div>
 
                         <div className="courses-section-header">
-                            <h2>Available Courses</h2>
-                            <button
-                                className="import-courses-button"
-                                onClick={() => setShowCourseScanner(true)}
-                            >
-                                📥 Import Courses
-                            </button>
+                            <h2>Course Library</h2>
+                            <div style={{display: 'flex', gap: '10px'}}>
+                                <button
+                                    className="import-courses-button"
+                                    onClick={() => setShowCourseScanner(true)}
+                                >
+                                    📥 Import Courses
+                                </button>
+                            </div>
                         </div>
 
                         <div className="courses-grid">
@@ -314,26 +354,26 @@ function HomePage(): JSX.Element {
                                             {course.description || 'No description available'}
                                         </p>
                                         <div className="course-footer">
-                      <span className="course-modules">
-                        {course.modules?.length || 0} modules
-                      </span>
+                                            <span className="course-modules">
+                                                {course.modules?.length || 0} modules
+                                            </span>
                                             <button
                                                 className="course-button"
                                                 onClick={() => handleCourseClick(course.id)}
                                             >
-                                                Start Course
+                                                Open
                                             </button>
                                         </div>
                                     </div>
                                 ))
                             ) : (
                                 <div className="no-courses">
-                                    <p>No courses available yet.</p>
+                                    <p>No courses found. Import courses to get started!</p>
                                     <button
                                         className="import-courses-button-large"
                                         onClick={() => setShowCourseScanner(true)}
                                     >
-                                        📥 Import Your First Course
+                                        📥 Import Courses
                                     </button>
                                 </div>
                             )}

@@ -19,28 +19,39 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
     const [loading, setLoading] = useState<boolean>(true)
     const [error, setError] = useState<string>('')
     const [contentProgressMap, setContentProgressMap] = useState<Map<string, boolean>>(new Map())
+
+    // modal states
     const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false)
     const [missingPaths, setMissingPaths] = useState<string[]>([])
+
+    const [collapsedModules, setCollapsedModules] = useState<Set<string>>(new Set())
 
     useEffect(() => {
         checkCourseExistsAndFetch()
     }, [courseId, userId])
+
+    // collapse all modules by default when course loads
+    useEffect(() => {
+        if (course?.modules) {
+            setCollapsedModules(new Set(course.modules.map(module => module.id)))
+        }
+    }, [course])
 
     const checkCourseExistsAndFetch = async () => {
         setLoading(true)
         setError('')
 
         try {
-            // First, check if the course exists on disk
+            // check if course folder still exists before loading everything
             const existsResponse = await fetch(`${baseURL}/api/courses/${courseId}/exists`)
             const existsData: ApiResponse<{ exists: boolean, missing_paths: string[] }> = await existsResponse.json()
 
             if (existsData.success && existsData.data) {
                 if (!existsData.data.exists) {
-                    // Course doesn't exist on disk, show modal
+                    // uh oh, course is gone from disk, show delete modal
                     setMissingPaths(existsData.data.missing_paths || [])
 
-                    // Still fetch course data to get the name for the modal
+                    // still need to fetch the course name for the modal
                     const courseResponse = await fetch(`${baseURL}/api/courses/${courseId}`)
                     const courseData: ApiResponse<Course> = await courseResponse.json()
 
@@ -54,11 +65,11 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
                 }
             }
 
-            // Course exists, proceed with normal fetching
+            // all good, load the course normally
             await fetchCourseData()
         } catch (err) {
             console.error('Error checking course existence:', err)
-            // If check fails, try to load normally
+            // if the check fails, just try loading anyway, maybe it'll work
             await fetchCourseData()
         }
     }
@@ -68,7 +79,7 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
         setError('')
 
         try {
-            // Fetch course details with modules and content items
+            // get the course with all its modules and content
             const courseResponse = await fetch(`${baseURL}/api/courses/${courseId}`)
             const courseData: ApiResponse<Course> = await courseResponse.json()
 
@@ -80,7 +91,7 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
 
             setCourse(courseData.data)
 
-            // Fetch course progress with batch optimization
+            // now grab the user's progress for this course
             const progressResponse = await fetch(
                 `${baseURL}/api/courses/${courseId}/progress?user_id=${userId}`
             )
@@ -89,7 +100,7 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
             if (progressData.success && progressData.data) {
                 setProgress(progressData.data)
 
-                // Build fast lookup map from batch progress data
+                // build a map for quick lookups instead of searching arrays every time
                 const completionMap = new Map<string, boolean>()
 
                 if (progressData.data.items) {
@@ -115,18 +126,36 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
 
     const handleClosePlayer = () => {
         setSelectedContent(null)
-        // Refresh progress after closing player
+        // refresh to get any updated progress
         fetchCourseData()
     }
 
     const getModuleProgress = (moduleId: string): number => {
         if (!progress || !progress.modules) return 0
+
         const moduleProgress = progress.modules.find((m) => m.module_id === moduleId)
         return moduleProgress ? moduleProgress.completion_pct : 0
     }
 
+    const isModuleCollapsed = (moduleId: string): boolean => {
+        return collapsedModules.has(moduleId)
+    }
+
     const isContentCompleted = (contentId: string): boolean => {
+        // check the map we built earlier for this content
         return contentProgressMap.get(contentId) === true
+    }
+
+    const toggleModuleFold = (moduleId: string) => {
+        setCollapsedModules(prevModules => {
+            const newSet = new Set(prevModules)
+            if (newSet.has(moduleId)) {
+                newSet.delete(moduleId)
+            } else {
+                newSet.add(moduleId)
+            }
+            return newSet
+        })
     }
 
     const handleDeleteCourse = async () => {
@@ -137,7 +166,7 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
             const data: ApiResponse<any> = await response.json()
 
             if (data.success) {
-                // Course deleted successfully, go back
+                // deleted from DB, go back to course list
                 onBack()
             } else {
                 setError('Failed to delete course from database')
@@ -151,11 +180,13 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
     }
 
     const handleKeepCourse = () => {
+        // user wants to keep the orphaned DB record
         setShowDeleteModal(false)
         onBack()
     }
 
     const handleResetProgress = async (): Promise<void> => {
+        // double check they actually want to do this
         if (!window.confirm('Are you sure you want to reset all progress for this course? This cannot be undone.')) {
             return
         }
@@ -168,7 +199,7 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
             const data: ApiResponse<any> = await response.json()
 
             if (data.success) {
-                // Refresh course data to show updated progress
+                // reload everything to show the reset
                 fetchCourseData()
             } else {
                 setError('Failed to reset progress')
@@ -219,8 +250,7 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
                     {progress && (
                         <div className="overall-progress">
                             <div className="progress-text">
-                                Overall Progress: {progress.completed_items} / {progress.total_items} items
-                                completed ({Math.round(progress.completion_pct)}%)
+                                Overall Progress: {progress.completed_items} / {progress.total_items} items ({Math.round(progress.completion_pct)}%)
                             </div>
                             <div className="progress-bar">
                                 <div
@@ -233,7 +263,7 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
                 </div>
             </div>
 
-            {/* Modules and Content */}
+            {/* Course modules */}
             <div className="course-content">
                 {!course.modules || course.modules.length === 0 ? (
                     <div className="no-modules">
@@ -242,6 +272,13 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
                 ) : (
                     course.modules.map((module: Module) => (
                         <div key={module.id} className="module-section">
+                            {/* collapse/expand button */}
+                            <button onClick={() => toggleModuleFold(module.id)}
+                                    aria-label={isModuleCollapsed(module.id) ? "Expand module" : "Collapse module"}>
+                                {isModuleCollapsed(module.id) ?
+                                    <span className="material-symbols-outlined">▼</span> :
+                                    <span className="material-symbols-outlined">▲</span>}
+                            </button>
                             <div className="module-header">
                                 <h2>{module.title}</h2>
                                 {module.description && <p className="module-desc">{module.description}</p>}
@@ -249,8 +286,7 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
                                     Progress: {Math.round(getModuleProgress(module.id))}%
                                 </div>
                             </div>
-
-                            <div className="content-list">
+                            {!isModuleCollapsed(module.id) && <div className="content-list">
                                 {!module.content_items || module.content_items.length === 0 ? (
                                     <div className="no-content">No content items in this module.</div>
                                 ) : (
@@ -285,7 +321,7 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
                                         </div>
                                     ))
                                 )}
-                            </div>
+                            </div>}
                         </div>
                     ))
                 )}

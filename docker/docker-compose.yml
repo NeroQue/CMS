@@ -37,12 +37,8 @@ services:
     depends_on:
       - postgres
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
-      DB_NAME: ${POSTGRES_DB}
-      COURSES_BASE_DIR: ${COURSES_BASE_DIR:-./courses}
+      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      COURSES_BASE_DIR: /courses
     volumes:
       - ${COURSES_BASE_DIR}:/courses
 

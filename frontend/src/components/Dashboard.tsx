@@ -27,7 +27,7 @@ function Dashboard({profile, onCourseClick, onScanCourses}: DashboardProps): JSX
 
     // Fetch dashboard data
     useEffect(() => {
-        if (isFetching.current) return
+        isFetching.current = false
 
         fetchDashboardData().catch((err) => {
             console.error('Failed to fetch dashboard data:', err)
@@ -47,14 +47,16 @@ function Dashboard({profile, onCourseClick, onScanCourses}: DashboardProps): JSX
             const coursesRes = await fetch(`${baseURL}/api/courses`)
             const coursesData: ApiResponse<Course[]> = await coursesRes.json()
 
-            if (!coursesData.success || !coursesData.data) {
+            if (!coursesData.success) {
                 throw new Error('Failed to fetch courses')
             }
 
-            setCourses(coursesData.data)
+            // Treat empty DB result as an empty list
+            const courseList = coursesData.data ?? []
+            setCourses(courseList)
 
             // Fetch progress for each course in parallel
-            const progressPromises = coursesData.data.map(async (course) => {
+            const progressPromises = courseList.map(async (course) => {
                 try {
                     const progressRes = await fetch(
                         `${baseURL}/api/courses/${course.id}/progress?user_id=${profile.id}`
@@ -101,7 +103,7 @@ function Dashboard({profile, onCourseClick, onScanCourses}: DashboardProps): JSX
             if (inProgress.length > 0) {
                 const mostRecent = inProgress[0]
                 if (mostRecent) {
-                    const recentCourse = coursesData.data.find(c => c.id === mostRecent.courseId)
+                    const recentCourse = courseList.find(c => c.id === mostRecent.courseId)
 
                     if (recentCourse?.modules && recentCourse.modules.length > 0) {
                         // Find first incomplete content item

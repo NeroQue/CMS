@@ -4,6 +4,7 @@ import ProfileCreation from './ProfileCreation'
 import CourseScanner from './CourseScanner'
 import CourseDetail from './CourseDetail'
 import Dashboard from './Dashboard'
+import Settings from './Settings'
 import './HomePage.css'
 
 function HomePage(): JSX.Element {
@@ -21,7 +22,7 @@ function HomePage(): JSX.Element {
         level: number
         streak: number
     } | null>(null)
-    const [currentView, setCurrentView] = useState<'dashboard' | 'library'>('dashboard')
+    const [currentView, setCurrentView] = useState<'dashboard' | 'library' | 'settings'>('dashboard')
 
     const isFetchingStats = useRef(false)
 
@@ -156,6 +157,18 @@ function HomePage(): JSX.Element {
         setCurrentView('library')
     }
 
+    const handleViewSettings = (): void => {
+        setCurrentView('settings')
+    }
+
+    const handleFactoryReset = (): void => {
+        setSelectedProfile(null)
+        setProfiles([])
+        setCourses([])
+        setProfileStats(null)
+        setCurrentView('dashboard')
+    }
+
     const handleDeleteProfile = async (profileId: string, profileName: string, e: React.MouseEvent): Promise<void> => {
         // Stop propagation to prevent profile selection
         e.stopPropagation()
@@ -235,7 +248,12 @@ function HomePage(): JSX.Element {
                             </button>
                         </>
                     )}
-                    <button className="nav-button" disabled>Settings</button>
+                    <button
+                        className={`nav-button ${currentView === 'settings' ? 'active' : ''}`}
+                        onClick={handleViewSettings}
+                    >
+                        ⚙️ Settings
+                    </button>
                     {selectedProfile && (
                         <button className="nav-button logout" onClick={handleLogout}>
                             Switch Profile
@@ -245,7 +263,9 @@ function HomePage(): JSX.Element {
             </nav>
 
             <main className="main-content">
-                {!selectedProfile ? (
+                {currentView === 'settings' ? (
+                    <Settings onFactoryReset={handleFactoryReset}/>
+                ) : !selectedProfile ? (
                     // Profile Selection View
                     <div className="profile-selection">
                         <h1>Select Your Profile</h1>

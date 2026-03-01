@@ -6,7 +6,7 @@ export const baseURL = import.meta.env.VITE_BASE_URL
 
 interface DashboardProps {
     profile: Profile
-    onCourseClick: (courseId: string) => void
+    onCourseClick: (courseId: string, initialContentId?: string) => void
     onScanCourses?: () => void
 }
 
@@ -106,19 +106,44 @@ function Dashboard({profile, onCourseClick, onScanCourses}: DashboardProps): JSX
                     const recentCourse = courseList.find(c => c.id === mostRecent.courseId)
 
                     if (recentCourse?.modules && recentCourse.modules.length > 0) {
-                        // Find first incomplete content item
+                        // Build a set of completed content item IDs from the progress data
+                        const completedIds = new Set<string>()
+                        if (mostRecent.progress.items) {
+                            mostRecent.progress.items.forEach(item => {
+                                if (item.completed) {
+                                    completedIds.add(item.content_item_id)
+                                }
+                            })
+                        }
+
+                        // Walk modules in order to find the first incomplete content item
+                        let foundContent: ContentItem | null = null
                         for (const module of recentCourse.modules) {
                             if (module.content_items && module.content_items.length > 0) {
-                                const content = module.content_items[0]
-                                if (content) {
-                                    setLastAccessedContent({
-                                        course: recentCourse,
-                                        content: content,
-                                        progressPercent: mostRecent.progress.completion_pct
-                                    })
-                                    break
+                                for (const content of module.content_items) {
+                                    if (!completedIds.has(content.id)) {
+                                        foundContent = content
+                                        break
+                                    }
                                 }
+                                if (foundContent) break
                             }
+                        }
+
+                        // If all items are completed (shouldn't happen for in-progress), fall back to the first item
+                        if (!foundContent) {
+                            const firstModule = recentCourse.modules[0]
+                            if (firstModule?.content_items && firstModule.content_items.length > 0) {
+                                foundContent = firstModule.content_items[0] ?? null
+                            }
+                        }
+
+                        if (foundContent) {
+                            setLastAccessedContent({
+                                course: recentCourse,
+                                content: foundContent,
+                                progressPercent: mostRecent.progress.completion_pct
+                            })
                         }
                     }
                 }
@@ -150,7 +175,7 @@ function Dashboard({profile, onCourseClick, onScanCourses}: DashboardProps): JSX
 
     const handleContinue = () => {
         if (lastAccessedContent) {
-            onCourseClick(lastAccessedContent.course.id)
+            onCourseClick(lastAccessedContent.course.id, lastAccessedContent.content.id)
         }
     }
 

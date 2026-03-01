@@ -10,9 +10,10 @@ interface CourseDetailProps {
     courseId: string
     userId: string
     onBack: () => void
+    initialContentId?: string
 }
 
-function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
+function CourseDetail({courseId, userId, onBack, initialContentId}: CourseDetailProps) {
     const [course, setCourse] = useState<Course | null>(null)
     const [progress, setProgress] = useState<CourseProgress | null>(null)
     const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null)
@@ -30,12 +31,31 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
         checkCourseExistsAndFetch()
     }, [courseId, userId])
 
-    // collapse all modules by default when course loads
+    // collapse all modules by default when course loads, but expand + auto-open if initialContentId is set
     useEffect(() => {
         if (course?.modules) {
-            setCollapsedModules(new Set(course.modules.map(module => module.id)))
+            if (initialContentId) {
+                // Find which module contains the target content item and expand it
+                const allModuleIds = new Set(course.modules.map(module => module.id))
+                for (const module of course.modules) {
+                    if (module.content_items) {
+                        const targetContent = module.content_items.find(item => item.id === initialContentId)
+                        if (targetContent) {
+                            // Expand this module, collapse the rest
+                            allModuleIds.delete(module.id)
+                            setCollapsedModules(allModuleIds)
+                            setSelectedContent(targetContent)
+                            return
+                        }
+                    }
+                }
+                // If content not found, fall back to collapsing all
+                setCollapsedModules(new Set(course.modules.map(module => module.id)))
+            } else {
+                setCollapsedModules(new Set(course.modules.map(module => module.id)))
+            }
         }
-    }, [course])
+    }, [course, initialContentId])
 
     const checkCourseExistsAndFetch = async () => {
         setLoading(true)
@@ -250,7 +270,8 @@ function CourseDetail({courseId, userId, onBack}: CourseDetailProps) {
                     {progress && (
                         <div className="overall-progress">
                             <div className="progress-text">
-                                Overall Progress: {progress.completed_items} / {progress.total_items} items ({Math.round(progress.completion_pct)}%)
+                                Overall Progress: {progress.completed_items} / {progress.total_items} items
+                                ({Math.round(progress.completion_pct)}%)
                             </div>
                             <div className="progress-bar">
                                 <div

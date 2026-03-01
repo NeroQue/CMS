@@ -14,6 +14,7 @@ function HomePage(): JSX.Element {
     const [showProfileCreation, setShowProfileCreation] = useState<boolean>(false)
     const [showCourseScanner, setShowCourseScanner] = useState<boolean>(false)
     const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
+    const [initialContentId, setInitialContentId] = useState<string | null>(null)
     const [profileStats, setProfileStats] = useState<{
         experience: number
         gems: number
@@ -134,12 +135,14 @@ function HomePage(): JSX.Element {
         setShowCourseScanner(false)
     }
 
-    const handleCourseClick = (courseId: string): void => {
+    const handleCourseClick = (courseId: string, contentId?: string): void => {
         setSelectedCourse(courseId)
+        setInitialContentId(contentId ?? null)
     }
 
     const handleBackToCourses = (): void => {
         setSelectedCourse(null)
+        setInitialContentId(null)
         fetchCourses()
         fetchProfileStats() // Refresh stats after completing content
         setCurrentView('dashboard')
@@ -205,6 +208,7 @@ function HomePage(): JSX.Element {
                 courseId={selectedCourse}
                 userId={selectedProfile.id}
                 onBack={handleBackToCourses}
+                initialContentId={initialContentId ?? undefined}
             />
         )
     }

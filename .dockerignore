@@ -1,0 +1,20 @@
+# Ignore node_modules (contains symlinks that break Docker builds)
+frontend/node_modules
+frontend/dist
+
+# Go build artifacts
+backend/bin
+
+# Git
+.git
+
+# IDE
+.idea
+backend/.idea
+
+# Temp/docs
+TMP
+
+# Docker (avoid copying docker context into itself)
+docker/.dockerignore
+

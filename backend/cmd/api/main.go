@@ -6,14 +6,17 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/NeroQue/course-management-backend/internal/api"
 	"github.com/NeroQue/course-management-backend/internal/database"
 	"github.com/NeroQue/course-management-backend/pkg/parser"
 	"github.com/NeroQue/course-management-backend/pkg/session"
 	"github.com/NeroQue/course-management-backend/pkg/util"
+	"github.com/NeroQue/course-management-backend/sql/schema"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"github.com/pressly/goose/v3"
 
 	_ "github.com/NeroQue/course-management-backend/cmd/api/docs"
 )
@@ -58,13 +61,19 @@ func main() {
 		log.Printf("Courses directory configured: %s\n", coursesDir)
 	}
 
-	// connect to postgres
-	db, err := sql.Open("postgres", dbURL)
+	// connect to postgres with retry - gives the DB container time to start
+	db, err := connectWithRetry(dbURL, 30, 2*time.Second)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %s\n", err)
+		log.Fatalf("Failed to connect to database after retries: %s\n", err)
 		return
 	}
 	defer db.Close()
+
+	// run migrations before anything else touches the DB
+	if err := runMigrations(db); err != nil {
+		log.Fatalf("Failed to run database migrations: %s\n", err)
+		return
+	}
 
 	queries := database.New(db)
 	session.Initialize(queries) // global session store - not ideal but works
@@ -73,9 +82,57 @@ func main() {
 	server := api.NewServer(db, courseParser)
 	handler := server.EnableCORS(server) // needed for frontend requests
 
-	fmt.Println("Starting server on :8080")
-	// TODO: make port configurable via env var
-	if err := http.ListenAndServe(":8080", handler); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	fmt.Printf("Starting server on :%s\n", port)
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatalf("Could not start server: %s\n", err)
 	}
+}
+
+// connectWithRetry tries to connect to the database, retrying on failure.
+// This handles the Docker race condition where the backend starts before Postgres is ready.
+func connectWithRetry(dbURL string, maxRetries int, delay time.Duration) (*sql.DB, error) {
+	var db *sql.DB
+	var err error
+
+	for i := 0; i < maxRetries; i++ {
+		db, err = sql.Open("postgres", dbURL)
+		if err != nil {
+			log.Printf("Failed to open database (attempt %d/%d): %s", i+1, maxRetries, err)
+			time.Sleep(delay)
+			continue
+		}
+
+		err = db.Ping()
+		if err == nil {
+			log.Println("Successfully connected to database")
+			return db, nil
+		}
+
+		log.Printf("Database not ready (attempt %d/%d): %s", i+1, maxRetries, err)
+		db.Close()
+		time.Sleep(delay)
+	}
+
+	return nil, fmt.Errorf("could not connect to database after %d attempts: %w", maxRetries, err)
+}
+
+// runMigrations applies all pending goose migrations using the embedded SQL files.
+func runMigrations(db *sql.DB) error {
+	goose.SetBaseFS(schema.Migrations)
+
+	if err := goose.SetDialect("postgres"); err != nil {
+		return fmt.Errorf("failed to set goose dialect: %w", err)
+	}
+
+	if err := goose.Up(db, "."); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	log.Println("Database migrations applied successfully")
+	return nil
 }

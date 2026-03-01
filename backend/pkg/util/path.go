@@ -5,16 +5,10 @@ import (
 	"path/filepath"
 )
 
-// GetCoursesDirectory figures out where course files are stored
+// GetCoursesDirectory figures out where course files are stored.
+// Set COURSES_BASE_DIR to configure this (works both locally and in Docker).
 func GetCoursesDirectory() string {
-	// check container env var first
-	coursesDir := os.Getenv("INTERNAL_COURSES_DIR")
-	if coursesDir != "" {
-		return coursesDir
-	}
-
-	// fallback to local dev env var
-	coursesDir = os.Getenv("COURSES_BASE_DIR")
+	coursesDir := os.Getenv("COURSES_BASE_DIR")
 	if coursesDir == "" {
 		// last resort - current directory
 		coursesDir = "."

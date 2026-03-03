@@ -4,6 +4,7 @@ WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ .
+RUN rm -rf node_modules && npm install
 RUN npm run build
 
 # Run stage (serve met nginx)

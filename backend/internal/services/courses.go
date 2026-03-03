@@ -896,14 +896,22 @@ func (s *CourseService) GetUserProgressSummary(ctx context.Context, userID uuid.
 		}
 	}
 
-	// TODO: calculate actual time spent and streak from user activity
+	// fetch streak from user profile (already calculated by gamification service)
+	streakDays := 0
+	profile, err := s.DB.GetProfileById(ctx, userID)
+	if err != nil {
+		log.Printf("Warning: couldn't fetch profile for streak: %v", err)
+	} else {
+		streakDays = int(profile.Streak)
+	}
+
 	return &models.ProgressSummary{
 		UserID:            userID,
 		TotalCourses:      len(allCourses),
 		CompletedCourses:  completedCourses,
 		InProgressCourses: inProgressCourses,
-		TotalTimeSpent:    0, // implement later with activity tracking
-		StreakDays:        0, // implement later with daily activity
+		TotalTimeSpent:    0, // TODO: implement with activity tracking
+		StreakDays:        streakDays,
 	}, nil
 }
 

@@ -45,5 +45,3 @@ type CourseWithProgress struct {
 	CompletionPct  float32 `json:"completion_pct"`
 	LastAccessedAt *string `json:"last_accessed_at,omitempty"`
 }
-
-// TODO: add methods for validating course data, checking permissions, etc.

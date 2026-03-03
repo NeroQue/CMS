@@ -60,7 +60,7 @@ func NewServer(db *sql.DB, courseParser *parser.CourseParser) *Server {
 // setupRoutes maps all the endpoints to handler functions
 func (s *Server) setupRoutes() {
 	// Swagger documentation
-	s.Router.HandleFunc("GET /swagger/", httpSwagger.WrapHandler)
+	s.Router.HandleFunc("/swagger/", httpSwagger.WrapHandler)
 
 	s.Router.HandleFunc("/api", s.HelloHandler)
 

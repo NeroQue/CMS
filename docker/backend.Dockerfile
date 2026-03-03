@@ -6,11 +6,11 @@ WORKDIR /app
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 
-# Kopieer source
+# Copy source
 COPY backend/ .
 
 # .env file
-COPY .env .
+# COPY .env .
 
 # Build the application
 RUN go build -o server ./cmd/api
@@ -32,6 +32,6 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/server .
-COPY --from=builder /app/.env .
+# COPY --from=builder /app/.env .
 EXPOSE 8080
 CMD ["./server"]

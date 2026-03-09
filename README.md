@@ -34,13 +34,19 @@ A web app for managing and taking courses. Built with a Go backend, React fronte
    COURSES_BASE_DIR=/path/to/your/courses
    ```
 
-3. Start everything with Docker Compose:
+3. Create a `.env` file inside the `frontend/` folder (you can copy `frontend/.env.example`):
+   ```
+   VITE_BASE_URL=http://localhost:8080
+   ```
+   Make sure the port matches the `BACKEND_PORT` you set in step 2.
+
+4. Start everything with Docker Compose:
    ```
    cd docker
    docker compose up --build
    ```
 
-4. Open the frontend at `http://localhost:3000` (or whatever port you set).
+5. Open the frontend at `http://localhost:3000` (or whatever `FRONTEND_PORT` you set).
 
 ## Project structure
 
